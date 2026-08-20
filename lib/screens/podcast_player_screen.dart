@@ -13,6 +13,8 @@ import '../widgets/podcast_art.dart';
 import '../widgets/podcast_captions.dart';
 import '../widgets/podcast_chapters.dart';
 import '../widgets/podcast_progress.dart';
+import '../widgets/sleep_timer_indicator.dart';
+import '../widgets/sleep_timer_sheet.dart';
 
 /// Full-screen podcast player.
 ///
@@ -34,6 +36,18 @@ class PodcastPlayerScreen extends StatefulWidget {
 class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   final PageController _pageController = PageController();
   int _page = 0;
+
+  /// Set once the underlying listen stops (e.g. the sleep timer expires) so
+  /// the route pops itself exactly once instead of once per rebuild.
+  bool _exiting = false;
+
+  Future<void> _openSleepTimer(BuildContext context) {
+    return SleepTimerSheet.show(
+      context,
+      controller: widget.controller,
+      showEndOfEpisode: true,
+    );
+  }
 
   /// Shares the current episode via the native share sheet. Guarded so the
   /// app stays quiet when sharing is unavailable (widget-test environment).
@@ -68,6 +82,17 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
+        if (!widget.controller.podcastActive) {
+          if (!_exiting) {
+            _exiting = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).maybePop();
+              }
+            });
+          }
+          return const Scaffold(body: SizedBox.shrink());
+        }
         final PodcastEpisode episode = widget.controller.currentEpisode!;
         final bool playing = widget.controller.isPlaying;
         final bool favourite = widget.controller.isSavedEpisode(episode.id);
@@ -123,7 +148,13 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                     downloaded: widget.controller.isDownloaded(episode.id),
                     onDownload: () => widget.controller.toggleDownloaded(episode.id),
                     onShare: () => _shareEpisode(episode),
+                    sleepActive: widget.controller.sleepActive,
+                    onSleep: () => _openSleepTimer(context),
                   ),
+                  if (widget.controller.sleepActive) ...[
+                    const SizedBox(height: 16),
+                    SleepTimerIndicator(controller: widget.controller),
+                  ],
                   NowPlayingInfo(title: episode.title, subtitle: episode.podcastName),
                 ],
               ),
@@ -440,6 +471,8 @@ class _SecondaryActions extends StatefulWidget {
     required this.downloaded,
     required this.onDownload,
     required this.onShare,
+    required this.sleepActive,
+    required this.onSleep,
   });
 
   final bool favourite;
@@ -447,6 +480,8 @@ class _SecondaryActions extends StatefulWidget {
   final bool downloaded;
   final VoidCallback onDownload;
   final VoidCallback onShare;
+  final bool sleepActive;
+  final VoidCallback onSleep;
 
   @override
   State<_SecondaryActions> createState() => _SecondaryActionsState();
@@ -455,7 +490,6 @@ class _SecondaryActions extends StatefulWidget {
 class _SecondaryActionsState extends State<_SecondaryActions> {
   static const List<double> _speeds = [1, 1.5, 2];
   int _speedIndex = 0;
-  bool _sleep = false;
 
   void _cycleSpeed() {
     setState(() => _speedIndex = (_speedIndex + 1) % _speeds.length);
@@ -505,11 +539,11 @@ class _SecondaryActionsState extends State<_SecondaryActions> {
           PlayerIconButton(
             key: const ValueKey('podcast-sleep'),
             tooltip: 'Sleep timer',
-            onPressed: () => setState(() => _sleep = !_sleep),
+            onPressed: widget.onSleep,
             icon: Icon(
               Icons.bedtime_outlined,
               size: 21,
-              color: _sleep ? AppColors.podcastAccent : AppColors.ink,
+              color: widget.sleepActive ? AppColors.podcastAccent : AppColors.ink,
             ),
           ),
           PlayerIconButton(

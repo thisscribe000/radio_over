@@ -75,3 +75,35 @@ class ListeningHistoryItem {
         playbackPosition: episode.position,
       );
 }
+
+/// How a sleep timer decides when to stop playback.
+enum SleepTimerMode {
+  /// Stops after a fixed countdown from when it was started.
+  duration,
+
+  /// Stops when the currently playing podcast episode ends.
+  endOfEpisode,
+}
+
+/// The active sleep timer, owned by the playback controller so it survives
+/// screen changes. [remainingDuration] is the originally chosen countdown;
+/// the live remaining time is derived from [endAt] against a clock so the UI
+/// recalculates it on rebuild without ticking its own counter.
+class SleepTimerState {
+  const SleepTimerState({
+    required this.mode,
+    required this.remainingDuration,
+    required this.startedAt,
+    this.endAt,
+  });
+
+  final SleepTimerMode mode;
+
+  /// The duration the listener picked, or zero for end-of-episode.
+  final Duration remainingDuration;
+
+  final DateTime startedAt;
+
+  /// Absolute expiry moment for [SleepTimerMode.duration]; null otherwise.
+  final DateTime? endAt;
+}

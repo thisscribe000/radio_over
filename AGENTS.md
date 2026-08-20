@@ -3,14 +3,15 @@
 Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a plain `ChangeNotifier`), no persistence/backend/state-management library. Widget-test driven (`flutter test`), analyzer clean.
 
 ## Build status
-- **110 tests pass, `flutter analyze` clean** (as of History screen completion).
+- **123 tests pass, `flutter analyze` clean** (as of Sleep Timer completion).
 - Radio + Podcast saving/history/downloads unified on `PlaybackController`.
-- Library screen (third shell tab) and Listening History screen built and wired.
+- Library screen (third shell tab), Listening History screen, and global Sleep Timer built and wired.
 
 ## Architecture rules
 - `PlaybackController` is the single source of truth: `audioType`/`status`/`currentStation`/`currentEpisode`, shared stores `favouriteStations`, `savedShows`, `savedEpisodes`, `downloadedEpisodes`, `recentHistory` (bounded `List<ListenRecord>`), and `listeningHistory` (bounded `List<ListeningHistoryItem>`, cap `maxListeningHistoryEntries = 150`, deduped, references content by id).
 - `ListenRecord` (models/playback.dart) embeds station/episode; `ListeningHistoryItem` stores `id/contentType/contentId/listenedAt/durationListened/playbackPosition` only.
-- Timer rule in tests: unmount tree (`pumpWidget(SizedBox())`) before `controller.dispose()` or the 1s playback ticker trips `!timersPending`.
+- Timer rule in tests: unmount tree (`pumpWidget(SizedBox())`) before `controller.dispose()` or the 1s playback/sleep tickers trip `!timersPending`.
+- `PlaybackController({DateTime Function()? clock})` injects the clock for deterministic sleep-timer expiry tests (defaults to `DateTime.now`).
 - `AppShell` uses an `IndexedStack` (hidden tabs stay mounted + findable); screens must gate off-tab content or scope test finders (`find.descendant`).
 - Mini players: radio strip is per-screen top slot (Library/History render their own, gated on tab `active`); podcast strip is shell bottom slot.
 - Widget-test font is Ahem; `RadioMiniPlayer` renders station name uppercased.
@@ -30,21 +31,10 @@ Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a 
 
 ## Completed features
 - Radio home/detail/player; Podcast home/detail/player; global search; Library; Downloads (entry + stub route only); Listening History; persistent podcast mini + per-screen radio mini; unified save/follow/download/history state; share via `share_plus` (`SharePlus.instance.share(ShareParams(...))`).
-
-## IN-PROGRESS (unfinished prompt) — SLEEP TIMER
-**Task:** global sleep timer for both Radio + Podcast players. NOT yet started (no code written).
-
-Requirements to implement when resumed:
-- Access from both Radio Player and Podcast Player via existing player action/menu system (no new permanent nav item).
-- Options: 15/30/45/60 MINUTES; Podcasts additionally END OF EPISODE (radio: never shows it).
-- Active timer shows subtly in player, e.g. `Sleep · 29:42`, countdown in real time via target/end timestamp recalculated on rebuild (not a continuously ticking UI counter). Cancel = `Turn Off Sleep Timer` (audio continues).
-- On expiry: stop current audio (player + mini player + playback state update), no crash, play again works. Podcast END OF EPISODE stops at episode end, never auto-starts another.
-- State centralized on `PlaybackController` (the existing state-management architecture), NOT in widgets. Concept: `SleepTimerState { active, mode (duration|endOfEpisode), remainingDuration, startedAt, endAt }`. No new state library.
-- Persistence across screens (player/mini/library/search) required; across app launches NOT required.
-- Edge cases: cancel before completion; pause/resume while active (countdown continues when paused — prefer standard sleep-timer behaviour); radio↔podcast switching; podcast ends before time expires; selecting a new timer replaces the active one.
-- Mini player: timer continues running; subtle indication only if it fits the design system (not required to be prominent).
-- Quiet/simple/premium/unobtrusive visual character. Do NOT build: notifications, alarms, schedules, profiles, new players, settings, backend.
-- Suggested implementation: add sleep-timer state + a `Timer`/`DateTime`-based check on `PlaybackController`, `stop()` when elapsed; add menu entry + countdown text to both players; ensure tests cover pause/resume, cancel, replace, expiry, END OF EPISODE, radio excludes END OF EPISODE. Verify: `flutter analyze` + `flutter test`.
+- **Sleep Timer** (global, both players): `SleepTimerMode { duration, endOfEpisode }` + `SleepTimerState` in `models/playback.dart`; owned by `PlaybackController` with an injectable `PlaybackController({DateTime Function()? clock})` so expiry is testable. Duration timers compare `endAt` vs the clock on a 1s `_sleepTicker`; END OF EPISODE fires from `_advance()` at episode end (full stop). `startSleepTimer(duration)` / `startSleepTimerEndOfEpisode()` / `cancelSleepTimer()`; `sleepActive`/`sleepMode`/`sleepRemaining`.
+- UI: `SleepTimerSheet` bottom sheet (radio `showEndOfEpisode: false`, podcast true; keys `sleep-timer-15/30/45/60/-end/-off`) opened via `player-sleep` (radio) and `podcast-sleep` (podcast, previously a local no-op toggle); `SleepTimerIndicator` renders `Sleep · MM:SS` (key `sleep-countdown`) above NowPlayingInfo, recomputed on rebuild. Mini players show a subtle `bedtime_outlined` icon while a timer is active.
+- On expiry, both players gate on `radioActive`/`podcastActive` and pop their own route once (`_exiting` post-frame `maybePop`) instead of crashing on `currentStation!`/`currentEpisode!`.
+- Sleep timer persists through the sleep ticker's 1s notify regardless of player/screen; continues counting while paused; replacing a timer supersedes the old one; audio plays again after expiry.
 
 ## Verify commands
 - `flutter analyze`

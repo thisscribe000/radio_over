@@ -10,6 +10,8 @@ import '../widgets/play_pause_button.dart';
 import '../widgets/player_icon_button.dart';
 import '../widgets/player_top_bar.dart';
 import '../widgets/radio_waveform.dart';
+import '../widgets/sleep_timer_indicator.dart';
+import '../widgets/sleep_timer_sheet.dart';
 
 /// Full-screen live-radio player.
 ///
@@ -27,6 +29,10 @@ class RadioPlayerScreen extends StatefulWidget {
 }
 
 class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
+  /// Set once the underlying listen stops (e.g. the sleep timer expires) so
+  /// the route pops itself exactly once instead of once per rebuild.
+  bool _exiting = false;
+
   void _switchStation(int delta) {
     final RadioStation? station = widget.controller.currentStation;
     if (station == null) return;
@@ -48,11 +54,30 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
     }
   }
 
+  Future<void> _openSleepTimer(BuildContext context) {
+    return SleepTimerSheet.show(
+      context,
+      controller: widget.controller,
+      showEndOfEpisode: false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
+        if (!widget.controller.radioActive) {
+          if (!_exiting) {
+            _exiting = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).maybePop();
+              }
+            });
+          }
+          return const Scaffold(body: SizedBox.shrink());
+        }
         final RadioStation station = widget.controller.currentStation!;
         final bool playing = widget.controller.isPlaying;
         final bool favourite = widget.controller.isFavouriteStation(station.name);
@@ -98,12 +123,18 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
                   _RadioControls(
                     playing: playing,
                     favourite: favourite,
+                    sleepActive: widget.controller.sleepActive,
                     onPlayPause: widget.controller.toggle,
                     onPrevious: () => _switchStation(-1),
                     onNext: () => _switchStation(1),
                     onFavourite: () => widget.controller.toggleFavouriteStation(station.name),
                     onShare: () => _share(station),
+                    onSleep: () => _openSleepTimer(context),
                   ),
+                  if (widget.controller.sleepActive) ...[
+                    const SizedBox(height: 12),
+                    SleepTimerIndicator(controller: widget.controller),
+                  ],
                   const SizedBox(height: 28),
                   NowPlayingInfo(title: station.program, subtitle: station.name),
                 ],
@@ -120,20 +151,24 @@ class _RadioControls extends StatelessWidget {
   const _RadioControls({
     required this.playing,
     required this.favourite,
+    required this.sleepActive,
     required this.onPlayPause,
     required this.onPrevious,
     required this.onNext,
     required this.onFavourite,
     required this.onShare,
+    required this.onSleep,
   });
 
   final bool playing;
   final bool favourite;
+  final bool sleepActive;
   final VoidCallback onPlayPause;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onFavourite;
   final VoidCallback onShare;
+  final VoidCallback onSleep;
 
   @override
   Widget build(BuildContext context) {
@@ -195,6 +230,17 @@ class _RadioControls extends StatelessWidget {
                   Icons.ios_share,
                   size: 22,
                   color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(width: 20),
+              PlayerIconButton(
+                key: const ValueKey('player-sleep'),
+                tooltip: 'Sleep timer',
+                onPressed: onSleep,
+                icon: Icon(
+                  Icons.bedtime_outlined,
+                  size: 22,
+                  color: sleepActive ? AppColors.accent : AppColors.ink,
                 ),
               ),
             ],

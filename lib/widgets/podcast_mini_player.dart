@@ -65,6 +65,12 @@ class PodcastMiniPlayer extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (controller.sleepActive) ...[
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: Icon(Icons.bedtime_outlined, size: 15, color: AppColors.muted),
+                    ),
+                  ],
                   IconButton(
                     key: const ValueKey('podcast-mini-dismiss'),
                     tooltip: 'Close',

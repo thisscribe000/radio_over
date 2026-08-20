@@ -17,6 +17,12 @@ class PlaybackController extends ChangeNotifier {
   /// the exact cap can be tuned without touching callers.
   static const int maxListeningHistoryEntries = 150;
 
+  /// Injectable clock so the sleep timer's expiry can be driven
+  /// deterministically in tests. Defaults to the real wall clock.
+  final DateTime Function() _now;
+
+  PlaybackController({DateTime Function()? clock}) : _now = clock ?? DateTime.now;
+
   AudioType _audioType = AudioType.none;
   PlayerStatus _status = PlayerStatus.stopped;
   RadioStation? _currentStation;
@@ -28,6 +34,8 @@ class PlaybackController extends ChangeNotifier {
   final Set<String> _savedEpisodes = {};
   final Set<String> _downloadedEpisodes = {};
   Timer? _ticker;
+  SleepTimerState? _sleepTimer;
+  Timer? _sleepTicker;
 
   AudioType get audioType => _audioType;
   PlayerStatus get status => _status;
@@ -151,15 +159,15 @@ class PlaybackController extends ChangeNotifier {
 
   void _recordRecent(RadioStation station) {
     _recent.removeWhere((r) => r.station?.name == station.name);
-    _recent.insert(0, ListenRecord(station: station, playedAt: DateTime.now()));
-    _upsertHistory(ListeningHistoryItem.station(station, DateTime.now()));
+    _recent.insert(0, ListenRecord(station: station, playedAt: _now()));
+    _upsertHistory(ListeningHistoryItem.station(station, _now()));
     _trimRecent();
   }
 
   void _recordRecentEpisode(PodcastEpisode episode) {
     _recent.removeWhere((r) => r.episode?.id == episode.id);
-    _recent.insert(0, ListenRecord(episode: episode, playedAt: DateTime.now()));
-    _upsertHistory(ListeningHistoryItem.episode(episode, DateTime.now()));
+    _recent.insert(0, ListenRecord(episode: episode, playedAt: _now()));
+    _upsertHistory(ListeningHistoryItem.episode(episode, _now()));
     _trimRecent();
   }
 
@@ -233,6 +241,90 @@ class PlaybackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- Sleep timer -------------------------------------------------------
+
+  /// Whether a sleep timer is currently armed.
+  bool get sleepActive => _sleepTimer != null;
+
+  SleepTimerMode? get sleepMode => _sleepTimer?.mode;
+
+  /// How long until the armed sleep timer stops playback, or null when the
+  /// remaining time cannot be derived (no timer, or end-of-episode with no
+  /// episode active). Recalculated against the injected clock on every read.
+  Duration? get sleepRemaining {
+    final SleepTimerState? timer = _sleepTimer;
+    if (timer == null) return null;
+    if (timer.mode == SleepTimerMode.duration) {
+      final Duration left = timer.endAt!.difference(_now());
+      return left.isNegative ? Duration.zero : left;
+    }
+    final PodcastEpisode? episode = _currentEpisode;
+    if (episode == null) return null;
+    final Duration left = episode.duration - episode.position;
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  /// Arms a countdown sleep timer. A previously active timer is replaced.
+  void startSleepTimer(Duration duration) {
+    final DateTime now = _now();
+    _sleepTimer = SleepTimerState(
+      mode: SleepTimerMode.duration,
+      remainingDuration: duration,
+      startedAt: now,
+      endAt: now.add(duration),
+    );
+    _ensureSleepTicker();
+    notifyListeners();
+  }
+
+  /// Arms a sleep timer that stops at the end of the current podcast episode.
+  void startSleepTimerEndOfEpisode() {
+    if (_audioType != AudioType.podcast) return;
+    _sleepTimer = SleepTimerState(
+      mode: SleepTimerMode.endOfEpisode,
+      remainingDuration: Duration.zero,
+      startedAt: _now(),
+    );
+    _ensureSleepTicker();
+    notifyListeners();
+  }
+
+  /// Cancels the active sleep timer without touching playback.
+  void cancelSleepTimer() {
+    if (_sleepTimer == null) return;
+    _sleepTimer = null;
+    _sleepTicker?.cancel();
+    _sleepTicker = null;
+    notifyListeners();
+  }
+
+  void _ensureSleepTicker() {
+    _sleepTicker ??= Timer.periodic(const Duration(seconds: 1), (_) => _advanceSleep());
+  }
+
+  /// Checks expiry and, while a timer is running, nudges listeners each second
+  /// so the on-screen countdown recomputes itself.
+  void _advanceSleep() {
+    final SleepTimerState? timer = _sleepTimer;
+    if (timer == null) {
+      _sleepTicker?.cancel();
+      _sleepTicker = null;
+      return;
+    }
+    if (timer.mode == SleepTimerMode.duration && !_now().isBefore(timer.endAt!)) {
+      _expireSleepTimer();
+      return;
+    }
+    notifyListeners();
+  }
+
+  void _expireSleepTimer() {
+    _sleepTimer = null;
+    _sleepTicker?.cancel();
+    _sleepTicker = null;
+    stop();
+  }
+
   void _syncTicker() {
     final bool shouldRun = _audioType == AudioType.podcast && _status == PlayerStatus.playing;
     if (shouldRun) {
@@ -250,6 +342,10 @@ class PlaybackController extends ChangeNotifier {
     }
     final Duration next = episode.position + const Duration(seconds: 1);
     if (next >= episode.duration) {
+      if (_sleepTimer?.mode == SleepTimerMode.endOfEpisode) {
+        _expireSleepTimer();
+        return;
+      }
       _currentEpisode = episode.copyWith(position: episode.duration);
       _status = PlayerStatus.paused;
       _syncTicker();
@@ -262,6 +358,7 @@ class PlaybackController extends ChangeNotifier {
   @override
   void dispose() {
     _ticker?.cancel();
+    _sleepTicker?.cancel();
     super.dispose();
   }
 }
