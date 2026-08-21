@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/content_scope.dart';
 import '../models/podcast_episode.dart';
 import '../models/station.dart';
 import '../playback/playback_controller.dart';
@@ -31,13 +32,21 @@ import '../widgets/radio_mini_player.dart';
 /// rows routed into the existing screens. The shared mini-player slot stays
 /// pinned at the bottom so the current broadcast or episode keeps playing.
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key, required this.controller, this.recentSearches});
+  const SearchScreen({
+    super.key,
+    required this.controller,
+    this.recentSearches,
+    this.content,
+  });
 
   final PlaybackController controller;
 
   /// Store for search history; defaults to a fresh in-memory store so it can
   /// be hosted above this screen (or persisted) without UI changes.
   final RecentSearches? recentSearches;
+
+  /// Content source; defaults to the offline mock scope when not provided.
+  final AppContent? content;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -47,7 +56,8 @@ class _SearchScreenState extends State<SearchScreen> {
   static const Duration _debounceDuration = Duration(milliseconds: 180);
 
   final TextEditingController _query = TextEditingController();
-  final SearchEngine _engine = const SearchEngine();
+  late final AppContent _content = widget.content ?? AppContent.mock();
+  late final SearchEngine _engine = SearchEngine(content: _content);
   late final RecentSearches _recentSearches =
       widget.recentSearches ?? RecentSearches();
 
@@ -103,10 +113,21 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _runSearch(String value) {
     final String term = value.trim();
-    setState(() {
-      _term = term;
-      _results = term.isEmpty ? const SearchResultSet() : _engine.search(term);
-    });
+    if (term.isEmpty) {
+      setState(() {
+        _term = '';
+        _results = const SearchResultSet();
+      });
+      return;
+    }
+    setState(() => _term = term);
+    unawaited(_fetch(term));
+  }
+
+  Future<void> _fetch(String term) async {
+    final SearchResultSet results = await _engine.search(term);
+    if (!mounted || term != _term) return;
+    setState(() => _results = results);
   }
 
   /// Sets the field to [value] and searches immediately (trending/recent/chip
@@ -156,7 +177,11 @@ class _SearchScreenState extends State<SearchScreen> {
   void _openShow(PodcastSeries show) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PodcastDetailScreen(show: show, controller: controller),
+        builder: (_) => PodcastDetailScreen(
+          show: show,
+          controller: controller,
+          content: _content,
+        ),
       ),
     );
   }

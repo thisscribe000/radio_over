@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/content_scope.dart';
 import '../models/playback.dart';
 import '../models/podcast_episode.dart';
 import '../models/station.dart';
@@ -42,9 +43,13 @@ class LibraryScreen extends StatefulWidget {
     required this.controller,
     required this.active,
     required this.onExploreAudio,
+    this.content,
   });
 
   final PlaybackController controller;
+
+  /// Content source; defaults to the offline mock scope when not provided.
+  final AppContent? content;
 
   /// Whether this tab is the one currently on screen. The screen is mounted
   /// inside the shell's IndexedStack, so its content (including the radio
@@ -62,6 +67,8 @@ enum _LibraryFilter { all, podcasts, radio }
 
 class _LibraryScreenState extends State<LibraryScreen> {
   static const Duration _playerDuration = Duration(milliseconds: 280);
+
+  late final AppContent _content = widget.content ?? AppContent.mock();
 
   _LibraryFilter _filter = _LibraryFilter.all;
 
@@ -95,15 +102,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- Helpers -------------------------------------------------------------
 
   PodcastEpisode? _episodeById(String id) {
-    for (final PodcastEpisode episode in mockPodcastEpisodes) {
+    for (final PodcastEpisode episode in _content.episodes) {
       if (episode.id == id) return episode;
-    }
-    return null;
-  }
-
-  RadioStation? _stationByName(String name) {
-    for (final RadioStation station in mockStations) {
-      if (station.name == name) return station;
     }
     return null;
   }
@@ -121,7 +121,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         controller.podcastPosition < current.duration) {
       inProgress.add(current);
     }
-    for (final PodcastEpisode episode in mockPodcastEpisodes) {
+    for (final PodcastEpisode episode in _content.episodes) {
       if (episode.position > Duration.zero &&
           !inProgress.any((e) => e.id == episode.id)) {
         inProgress.add(episode);
@@ -131,7 +131,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   List<PodcastSeries> get _savedShows => [
-        for (final PodcastSeries show in mockPodcasts)
+        for (final PodcastSeries show in _content.shows)
           if (controller.isSavedShow(show.id)) show,
       ];
 
@@ -145,10 +145,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
           if (_episodeById(id) case final PodcastEpisode episode) episode,
       ];
 
-  List<RadioStation> get _favouriteStations => [
-        for (final String name in controller.favouriteStations)
-          if (_stationByName(name) case final RadioStation station) station,
-      ];
+  List<RadioStation> get _favouriteStations =>
+      controller.favouriteStationDetails;
 
   List<ListenRecord> get _recentRadio => [
         for (final ListenRecord record in controller.recentHistory)
@@ -181,7 +179,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _openShow(PodcastSeries show) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PodcastDetailScreen(show: show, controller: controller),
+        builder: (_) => PodcastDetailScreen(
+          show: show,
+          controller: controller,
+          content: _content,
+        ),
       ),
     );
   }
@@ -928,8 +930,10 @@ class _FavouriteStationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool active =
-        controller.radioActive && controller.currentStation?.name == station.name;
+    final bool active = controller.radioActive &&
+        controller.currentStation?.stationId == station.stationId;
+    final bool unavailable =
+        !station.isOnline || (station.streamUrl?.isEmpty ?? true);
     return GestureDetector(
       key: ValueKey('library-station-${station.name}'),
       behavior: HitTestBehavior.opaque,
@@ -953,8 +957,18 @@ class _FavouriteStationRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Row(
                     children: [
-                      Text(station.category, style: AppTextStyles.stationCategory),
-                      if (active) ...[
+                      Flexible(
+                        child: Text(station.category,
+                            style: AppTextStyles.stationCategory,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      if (unavailable) ...[
+                        const SizedBox(width: 8),
+                        const Text('OFFLINE',
+                            key: ValueKey('library-station-offline'),
+                            style: AppTextStyles.nowPlayingLabel),
+                      ] else if (active) ...[
                         const SizedBox(width: 10),
                         const ActiveDot(),
                       ],

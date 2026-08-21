@@ -49,7 +49,13 @@ class RadioMiniPlayer extends StatelessWidget {
                 children: [
                   Text(station.name.toUpperCase(), style: AppTextStyles.playerStation),
                   const SizedBox(height: 3),
-                  Text(station.program, style: AppTextStyles.playerProgram),
+                  Text(
+                    controller.radioNowPlaying ?? station.program,
+                    key: const ValueKey('radio-mini-program'),
+                    style: AppTextStyles.playerProgram,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),

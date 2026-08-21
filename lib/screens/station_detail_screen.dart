@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/content_scope.dart';
 import '../models/podcast_episode.dart';
 import '../models/station.dart';
 import '../playback/playback_controller.dart';
@@ -25,16 +26,21 @@ class StationDetailScreen extends StatefulWidget {
     super.key,
     required this.station,
     required this.controller,
+    this.content,
   });
 
   final RadioStation station;
   final PlaybackController controller;
+
+  /// Content source; defaults to the offline mock scope when not provided.
+  final AppContent? content;
 
   @override
   State<StationDetailScreen> createState() => _StationDetailScreenState();
 }
 
 class _StationDetailScreenState extends State<StationDetailScreen> {
+  late final AppContent _content = widget.content ?? AppContent.mock();
   String _day = 'TODAY';
   String? _dismissedEpisode;
   String? _dismissedRadio;
@@ -62,7 +68,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
       _dismissedEpisode = null;
     }
     final RadioStation? active = controller.currentStation;
-    if (controller.radioActive && active != null && active.name != _dismissedRadio) {
+    if (controller.radioActive && active != null && active.stationId != _dismissedRadio) {
       _dismissedRadio = null;
     }
   }
@@ -72,7 +78,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   /// reads PLAYING NOW and simply reopens the player.
   void _listenLive() {
     final RadioStation? active = controller.currentStation;
-    if (active == null || active.name != station.name) {
+    if (active == null || active.stationId != station.stationId) {
       controller.playRadioStation(station);
     }
     Navigator.of(context).push(
@@ -206,9 +212,8 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   // --- Primary actions ----------------------------------------------------
 
   Widget _buildListen() {
-    final bool playing =
-        controller.radioActive &&
-        controller.currentStation?.name == station.name &&
+    final bool playing = controller.radioActive &&
+        controller.currentStation?.stationId == station.stationId &&
         controller.isPlaying;
     return GestureDetector(
       key: const ValueKey('detail-listen'),
@@ -243,11 +248,12 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   }
 
   Widget _buildFavourite() {
-    final bool favourite = controller.isFavouriteStation(station.name);
+    final bool favourite = controller.isFavouriteStation(station.stationId);
     return GestureDetector(
       key: const ValueKey('detail-favourite'),
       behavior: HitTestBehavior.opaque,
-      onTap: () => controller.toggleFavouriteStation(station.name),
+      onTap: () =>
+          controller.toggleFavouriteStation(station.stationId, details: station),
       child: Container(
         height: 48,
         alignment: Alignment.center,
@@ -508,7 +514,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
 
   List<RadioStation> _relatedStations() {
     final List<RadioStation> others = [
-      for (final RadioStation s in mockStations)
+      for (final RadioStation s in _content.stations)
         if (s.name != station.name) s,
     ];
     others.sort((a, b) {
@@ -532,12 +538,12 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
 
     if (controller.radioActive &&
         controller.currentStation != null &&
-        _dismissedRadio != controller.currentStation!.name) {
+        _dismissedRadio != controller.currentStation!.stationId) {
       return RadioMiniPlayer(
         key: ValueKey('station-detail-radio-${controller.currentStation!.name}'),
         controller: controller,
         onDismiss: () => setState(() {
-          _dismissedRadio = controller.currentStation!.name;
+          _dismissedRadio = controller.currentStation!.stationId;
         }),
       );
     }

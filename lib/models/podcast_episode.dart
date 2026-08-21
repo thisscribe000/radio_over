@@ -83,10 +83,14 @@ class PodcastEpisode {
     this.about,
     this.position = Duration.zero,
     this.transcriptAvailable = false,
+    this.audioUrl,
+    this.guid,
+    this.imageUrl,
   });
 
   /// Stable unique identifier, e.g. "the-daily-gaza". Used for favourites
-  /// and deep links; a real feed would ship its own episode ids.
+  /// and deep links. Falls back to the feed-provided [guid] when a real feed
+  /// is parsed; keeps legacy mock episodes unique by construction.
   final String id;
 
   /// The [PodcastSeries.id] this episode belongs to.
@@ -95,6 +99,17 @@ class PodcastEpisode {
   final String podcastName;
   final String title;
   final Duration duration;
+
+  /// Direct audio file URL from the feed enclosure. The player hands this to
+  /// the playback engine for streaming/downloads once feeds are live.
+  final String? audioUrl;
+
+  /// Feed-provided stable identifier (e.g. `<guid>`/`enclosure url`) used to
+  /// dedupe and persist episodes across refreshes.
+  final String? guid;
+
+  /// Episode artwork URL when the feed overrides the show art. Optional.
+  final String? imageUrl;
 
   /// Position within the show, e.g. "Episode 184".
   final int? episodeNumber;
@@ -138,6 +153,9 @@ class PodcastEpisode {
     String? about,
     Duration? position,
     bool? transcriptAvailable,
+    String? audioUrl,
+    String? guid,
+    String? imageUrl,
   }) {
     return PodcastEpisode(
       id: id ?? this.id,
@@ -150,8 +168,27 @@ class PodcastEpisode {
       about: about ?? this.about,
       position: position ?? this.position,
       transcriptAvailable: transcriptAvailable ?? this.transcriptAvailable,
+      audioUrl: audioUrl ?? this.audioUrl,
+      guid: guid ?? this.guid,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
+}
+
+/// Stable content identity for one episode, used to diff episodes across
+/// feed refreshes without ever relying on list position.
+///
+/// The feed GUID is preferred. When a feed omits it, a normalized
+/// title + publication date + audio URL combination stands in so the same
+/// item keeps its identity between fetches.
+String episodeIdentityKey(PodcastEpisode episode) {
+  final String? guid = episode.guid;
+  if (guid != null && guid.isNotEmpty) return 'guid:$guid';
+  final String title =
+      episode.title.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  final String date = episode.published?.trim() ?? '';
+  final String audio = episode.audioUrl?.trim() ?? '';
+  return 'fallback:$title|$date|$audio';
 }
 
 /// A podcast show with its episodes, used by the Podcasts and detail screens.
@@ -164,9 +201,13 @@ class PodcastSeries {
     required this.description,
     this.frequency,
     required this.episodes,
+    this.imageUrl,
+    this.feedUrl,
+    this.feedAuthor,
   });
 
-  /// Stable unique identifier, e.g. "the-daily".
+  /// Stable unique identifier, e.g. "the-daily". Falls back to a slug of the
+  /// feed title when parsed from RSS.
   final String id;
 
   final String name;
@@ -181,7 +222,28 @@ class PodcastSeries {
   /// Release schedule, e.g. "Every weekday". Optional until feeds are real.
   final String? frequency;
 
+  /// Square show artwork URL from the directory or feed art. Optional.
+  final String? imageUrl;
+
+  /// Absolute RSS feed URL this series was parsed from, for refresh.
+  final String? feedUrl;
+
+  /// Raw `<itunes:author>`/author text from the feed, if the directory has
+  /// nothing better than the show host to credit.
+  final String? feedAuthor;
+
   final List<PodcastEpisode> episodes;
+
+  /// Stable identity used by routes and keys.
+  String get showId => id;
+
+  /// A single episode by id when present in this feed (null for foreign ids).
+  PodcastEpisode? episodeById(String episodeId) {
+    for (final PodcastEpisode e in episodes) {
+      if (e.id == episodeId) return e;
+    }
+    return null;
+  }
 }
 
 /// Temporary series data until a real podcast feed is available.

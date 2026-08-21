@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/content_scope.dart';
 import '../models/podcast_episode.dart';
 import '../playback/playback_controller.dart';
 import '../screens/library_screen.dart';
@@ -16,15 +17,20 @@ import '../widgets/podcast_mini_player.dart';
 /// going while browsing. Dismissing the strip hides it until a new episode is
 /// chosen.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.controller});
+  const AppShell({super.key, required this.controller, this.content});
 
   final PlaybackController controller;
+
+  /// Content repositories/source of truth. Defaults to the offline mock scope
+  /// so the shell works standalone (and every widget test) without a backend.
+  final AppContent? content;
 
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
+  late final AppContent _content = widget.content ?? AppContent.mock();
   int _index = 0;
 
   /// Title of the episode the listener dismissed; null while the strip is
@@ -59,10 +65,11 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(
         index: _index,
         children: [
-          RadioScreen(controller: widget.controller),
-          PodcastsScreen(controller: widget.controller),
+          RadioScreen(controller: widget.controller, content: _content),
+          PodcastsScreen(controller: widget.controller, content: _content),
           LibraryScreen(
             controller: widget.controller,
+            content: _content,
             active: _index == 2,
             onExploreAudio: () => setState(() => _index = 1),
           ),

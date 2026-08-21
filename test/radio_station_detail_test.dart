@@ -157,7 +157,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(controller.isFavouriteStation('BBC World Service'), isTrue);
+      expect(controller.isFavouriteStation('bbc-world-service'), isTrue);
 
       await openDetailFromHome(tester, 'BBC World Service');
       expect(find.text('♥ SAVED'), findsOneWidget);
@@ -171,7 +171,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('detail-favourite')));
       await tester.pump();
       expect(find.text('♥ SAVED'), findsOneWidget);
-      expect(controller.isFavouriteStation('BBC World Service'), isTrue);
+      expect(controller.isFavouriteStation('bbc-world-service'), isTrue);
 
       await tester.tap(find.byKey(const ValueKey('station-detail-back')));
       await tester.pumpAndSettle();

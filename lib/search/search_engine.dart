@@ -1,3 +1,4 @@
+import '../data/content_scope.dart';
 import '../models/podcast_episode.dart';
 import '../models/station.dart';
 import 'search_result.dart';
@@ -22,11 +23,17 @@ class SearchResultSet {
       top == null && stations.isEmpty && podcasts.isEmpty && episodes.isEmpty;
 }
 
-/// Pure catalogue search. No UI and no playback: given a query it returns the
-/// unified hit set across radio and podcasts, so a real backend can replace
-/// [search] later without changing the presentation layer.
+/// Unified catalogue search across radio and podcasts.
+///
+/// No UI and no playback: given a query it returns the ranked hit set so the
+/// presentation layer never has to know where content comes from. Results
+/// are always available synchronously from the scope's local catalogue, and
+/// when the scope is live ([AppContent.isLive]) the configured repositories
+/// are queried in parallel and their hits merged in (deduped).
 class SearchEngine {
-  const SearchEngine();
+  SearchEngine({AppContent? content}) : content = content ?? AppContent.mock();
+
+  final AppContent content;
 
   /// Popular searches/content categories for the discovery state.
   static const List<String> trending = [
@@ -50,30 +57,69 @@ class SearchEngine {
   static const int _maxPodcasts = 4;
   static const int _maxEpisodes = 5;
 
-  SearchResultSet search(String query) {
+  /// Ranked hits for [query], grouping stations, podcasts and episodes.
+  Future<SearchResultSet> search(String query) async {
+    if (!content.isLive) return searchLocal(query);
+
+    final dd = await Future.wait<dynamic>([
+      content.searchStations(query),
+      content.searchShows(query),
+    ]);
+    final List<RadioStation> remoteStations =
+        (dd[0] as List).cast<RadioStation>();
+    final List<PodcastSeries> remoteShows =
+        (dd[1] as List).cast<PodcastSeries>();
+    return _compose(query, remoteStations: remoteStations, remoteShows: remoteShows);
+  }
+
+  /// Deterministic, purely-local search over the scope's catalogue. Used when
+  /// the content is not live and by tests.
+  SearchResultSet searchLocal(String query) => _compose(query);
+
+  SearchResultSet _compose(
+    String query, {
+    List<RadioStation> remoteStations = const [],
+    List<PodcastSeries> remoteShows = const [],
+  }) {
     final String q = query.trim().toLowerCase();
     if (q.isEmpty) return const SearchResultSet();
 
     final List<StationResult> stations = [];
-    for (final RadioStation station in mockStations) {
+    final Map<String, StationResult> stationByName = {};
+    for (final RadioStation station in [...remoteStations, ...content.stations]) {
       final int score = _scoreAll(
         [station.name, station.program, station.category, station.country],
         q,
       );
-      if (score >= 0) stations.add(StationResult(rank: score, station: station));
+      if (score < 0) continue;
+      final StationResult candidate = StationResult(rank: score, station: station);
+      final StationResult? previous = stationByName[station.name];
+      if (previous == null || score < previous.rank) {
+        stationByName[station.name] = candidate;
+      }
     }
+    stations.addAll(stationByName.values);
 
     final List<PodcastResult> podcasts = [];
-    for (final PodcastSeries show in mockPodcasts) {
+    final Map<String, PodcastResult> podcastById = {};
+    for (final PodcastSeries show in [...remoteShows, ...content.shows]) {
       final int score = _scoreAll(
         [show.name, show.publisher, show.category, show.description],
         q,
       );
-      if (score >= 0) podcasts.add(PodcastResult(rank: score, show: show));
+      if (score < 0) continue;
+      final PodcastResult candidate = PodcastResult(rank: score, show: show);
+      final PodcastResult? previous = podcastById[show.id];
+      if (previous == null ||
+          score < previous.rank ||
+          (previous.show.episodes.isEmpty && candidate.show.episodes.isNotEmpty)) {
+        podcastById[show.id] = candidate;
+      }
     }
+    podcasts.addAll(podcastById.values);
 
     final List<EpisodeResult> episodes = [];
-    for (final PodcastEpisode episode in mockPodcastEpisodes) {
+    for (final PodcastEpisode episode in content.episodes) {
       final int score = _scoreAll(
         [episode.title, episode.podcastName, episode.about],
         q,

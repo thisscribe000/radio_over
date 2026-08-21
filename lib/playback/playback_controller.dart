@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/favourites/favourite_station_store.dart';
 import '../models/playback.dart';
 import '../models/podcast_episode.dart';
 import '../models/station.dart';
+import 'audio_engine.dart';
 
 /// Single source of truth for what is currently playing.
 ///
@@ -17,11 +19,45 @@ class PlaybackController extends ChangeNotifier {
   /// the exact cap can be tuned without touching callers.
   static const int maxListeningHistoryEntries = 150;
 
+  /// Automatic reconnection attempts after a stream error before the UI is
+  /// allowed to declare UNABLE TO CONNECT. A manual retry always resets this.
+  static const int maxRadioRetries = 2;
+
   /// Injectable clock so the sleep timer's expiry can be driven
   /// deterministically in tests. Defaults to the real wall clock.
   final DateTime Function() _now;
 
-  PlaybackController({DateTime Function()? clock}) : _now = clock ?? DateTime.now;
+  /// Injectable audio engine. Defaults to [SimulatedAudioEngine] so the app
+  /// (and the existing test suite) behaves identically without a device stack.
+  final AudioEngine _engine;
+
+  /// Delay between automatic radio reconnection attempts. Configurable so
+  /// tests can collapse it to zero.
+  final Duration radioRetryDelay;
+
+  /// Persists favourite stations across restarts. Defaults to memory-only.
+  final FavouriteStationStore _favouriteStore;
+
+  StreamSubscription<AudioEngineEvent>? _engineSub;
+
+  PlaybackController({
+    DateTime Function()? clock,
+    AudioEngine? engine,
+    FavouriteStationStore? favouriteStore,
+    this.radioRetryDelay = const Duration(seconds: 2),
+  })  : _now = clock ?? DateTime.now,
+        _engine = engine ?? SimulatedAudioEngine(),
+        _favouriteStore = favouriteStore ?? InMemoryFavouriteStationStore() {
+    final AudioEngine engine = _engine;
+    if (engine is StatefulAudioEngine) {
+      _engineSub = engine.events
+          .listen(_onEngineEvent, onError: (_) => _handleRadioError());
+    }
+    unawaited(_loadFavourites());
+  }
+
+  /// The engine currently driving sound (exposed for future wiring).
+  AudioEngine get engine => _engine;
 
   AudioType _audioType = AudioType.none;
   PlayerStatus _status = PlayerStatus.stopped;
@@ -29,18 +65,33 @@ class PlaybackController extends ChangeNotifier {
   PodcastEpisode? _currentEpisode;
   final List<ListenRecord> _recent = [];
   final List<ListeningHistoryItem> _history = [];
-  final Set<String> _favouriteStations = {};
+  final Map<String, RadioStation> _favouriteStations = {};
   final Set<String> _savedShows = {};
   final Set<String> _savedEpisodes = {};
   final Set<String> _downloadedEpisodes = {};
+  final Set<String> _unseenEpisodes = {};
   Timer? _ticker;
   SleepTimerState? _sleepTimer;
   Timer? _sleepTicker;
+
+  RadioConnectionState _radioState = RadioConnectionState.idle;
+  String? _radioMetadata;
+  int _radioAttempts = 0;
+  Timer? _radioRetryTimer;
 
   AudioType get audioType => _audioType;
   PlayerStatus get status => _status;
   RadioStation? get currentStation => _currentStation;
   PodcastEpisode? get currentEpisode => _currentEpisode;
+
+  /// Real connection state of the live radio stream (connecting/buffering/
+  /// playing/error). Never claims a station is live before audio flows.
+  RadioConnectionState get radioState => _radioState;
+
+  /// Now-playing text exactly as the stream reported it, or null when the
+  /// station exposes none. The UI falls back to LIVE/station name — nothing
+  /// is ever invented here.
+  String? get radioNowPlaying => _radioMetadata;
 
   /// Radio stations played this session, most recent first. Empty until
   /// something has been played. Used by the RECENTLY PLAYED section.
@@ -85,15 +136,60 @@ class PlaybackController extends ChangeNotifier {
 
   /// Stations the listener saved, shared across every surface (home, search,
   /// station detail) so SAVE is one consistent state rather than per-screen.
-  Set<String> get favouriteStations => Set.unmodifiable(_favouriteStations);
+  /// Keyed by stable [RadioStation.stationId]; each entry keeps a cached
+  /// metadata snapshot so favourites survive restarts, catalogue churn and
+  /// offline use without duplicating live catalogue objects.
+  Set<String> get favouriteStations => Set.unmodifiable(_favouriteStations.keys);
 
-  bool isFavouriteStation(String name) => _favouriteStations.contains(name);
+  /// Cached snapshots of the favourite stations, in the order they were
+  /// saved. The Library renders from this — real stations only.
+  List<RadioStation> get favouriteStationDetails =>
+      List.unmodifiable(_favouriteStations.values);
 
-  void toggleFavouriteStation(String name) {
-    if (!_favouriteStations.remove(name)) {
-      _favouriteStations.add(name);
+  RadioStation? favouriteStationById(String stationId) => _favouriteStations[stationId];
+
+  bool isFavouriteStation(String stationId) => _favouriteStations.containsKey(stationId);
+
+  void toggleFavouriteStation(String stationId, {RadioStation? details}) {
+    if (_favouriteStations.remove(stationId) == null) {
+      final RadioStation? snapshot = details ?? _currentStation;
+      if (snapshot != null && snapshot.stationId == stationId) {
+        _favouriteStations[stationId] = snapshot;
+      } else {
+        // Id-only save (no snapshot available): keep a bare-bones record so
+        // the favourite still exists until richer details arrive.
+        _favouriteStations[stationId] = RadioStation(
+          id: stationId,
+          name: stationId,
+          category: 'Radio',
+          program: 'LIVE RADIO',
+        );
+      }
     }
+    unawaited(_persistFavourites());
     notifyListeners();
+  }
+
+  Future<void> _loadFavourites() async {
+    try {
+      final Map<String, RadioStation> restored =
+          await _favouriteStore.load();
+      if (restored.isEmpty || _favouriteStations.isNotEmpty) return;
+      _favouriteStations
+        ..clear()
+        ..addAll(restored);
+      notifyListeners();
+    } on Exception {
+      // Storage unavailable (e.g. tests): favourites stay session-only.
+    }
+  }
+
+  Future<void> _persistFavourites() async {
+    try {
+      await _favouriteStore.save(_favouriteStations);
+    } on Exception {
+      // Persistence is best-effort; the in-session set stays authoritative.
+    }
   }
 
   /// Shows the listener saved, shared across the Podcasts home and the show
@@ -135,6 +231,30 @@ class PlaybackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Episodes discovered by feed refresh that the listener has not opened
+  /// yet. Deliberately independent of saved/downloaded state and of playback
+  /// progress: an episode can be new + saved, new + downloaded, and so on.
+  Set<String> get unseenEpisodes => Set.unmodifiable(_unseenEpisodes);
+
+  /// Whether an episode should still show its NEW indicator.
+  bool isNewEpisode(String episodeId) => _unseenEpisodes.contains(episodeId);
+
+  /// Flags episodes as newly discovered (drives the NEW indicator).
+  void markEpisodesUnseen(Iterable<String> episodeIds) {
+    bool changed = false;
+    for (final String id in episodeIds) {
+      if (id.isNotEmpty && _unseenEpisodes.add(id)) changed = true;
+    }
+    if (changed) notifyListeners();
+  }
+
+  /// Clears the NEW indicator once the listener has meaningfully opened the
+  /// episode (playing it does this automatically).
+  void markEpisodeSeen(String episodeId) {
+    if (!_unseenEpisodes.remove(episodeId)) return;
+    notifyListeners();
+  }
+
   Duration get podcastPosition => _currentEpisode?.position ?? Duration.zero;
   Duration get podcastDuration => _currentEpisode?.duration ?? Duration.zero;
 
@@ -152,9 +272,90 @@ class PlaybackController extends ChangeNotifier {
     _currentStation = station;
     _currentEpisode = null;
     _status = PlayerStatus.playing;
+    _radioMetadata = null;
+    _radioAttempts = 0;
+    _radioRetryTimer?.cancel();
+    _radioState = RadioConnectionState.connecting;
     _recordRecent(station);
     _syncTicker();
+    unawaited(_engine.start(station.streamUrl ?? ''));
     notifyListeners();
+  }
+
+  /// Manual reconnection after a stream failure. Resets the auto-retry
+  /// budget and re-opens the current station's stream.
+  void retryRadio() {
+    final RadioStation? station = _currentStation;
+    if (_audioType != AudioType.radio || station == null) return;
+    _radioAttempts = 0;
+    _radioRetryTimer?.cancel();
+    _radioMetadata = null;
+    _status = PlayerStatus.playing;
+    _radioState = RadioConnectionState.connecting;
+    _syncTicker();
+    unawaited(_engine.start(station.streamUrl ?? ''));
+    notifyListeners();
+  }
+
+  /// Engine reports: connection progress, starvation, death, or now-playing
+  /// text. Only radio listens to these — podcast position is controller-driven.
+  void _onEngineEvent(AudioEngineEvent event) {
+    if (event.metadata != null && event.metadata!.isNotEmpty) {
+      _radioMetadata = event.metadata;
+      if (_audioType == AudioType.radio) notifyListeners();
+    }
+    switch (event.state) {
+      case EngineStreamState.idle:
+        break; // stop() already handled at the controller level
+      case EngineStreamState.connecting:
+        _applyRadioState(RadioConnectionState.connecting);
+        break;
+      case EngineStreamState.buffering:
+        _applyRadioState(RadioConnectionState.buffering);
+        break;
+      case EngineStreamState.playing:
+        _applyRadioState(RadioConnectionState.playing);
+        break;
+      case EngineStreamState.error:
+        _handleRadioError();
+        break;
+    }
+  }
+
+  void _applyRadioState(RadioConnectionState state) {
+    if (_audioType != AudioType.radio || _radioState == state) return;
+    _radioState = state;
+    notifyListeners();
+  }
+
+  /// Limited automatic reconnection before surfacing UNABLE TO CONNECT.
+  void _handleRadioError() {
+    if (_audioType != AudioType.radio) return;
+    final RadioStation? station = _currentStation;
+    if (station == null) return;
+    if (_radioAttempts < maxRadioRetries) {
+      _radioAttempts++;
+      _radioRetryTimer?.cancel();
+      _radioState = RadioConnectionState.connecting; // still trying quietly
+      notifyListeners();
+      _radioRetryTimer = Timer(radioRetryDelay, () {
+        if (_audioType != AudioType.radio ||
+            _currentStation?.stationId != station.stationId) {
+          return;
+        }
+        unawaited(_engine.start(station.streamUrl ?? ''));
+      });
+      return;
+    }
+    _radioState = RadioConnectionState.error;
+    notifyListeners();
+  }
+
+  void _resetRadioSurface() {
+    _radioRetryTimer?.cancel();
+    _radioMetadata = null;
+    _radioAttempts = 0;
+    _radioState = RadioConnectionState.idle;
   }
 
   void _recordRecent(RadioStation station) {
@@ -210,14 +411,19 @@ class PlaybackController extends ChangeNotifier {
     _currentEpisode = episode;
     _currentStation = null;
     _status = PlayerStatus.playing;
+    _unseenEpisodes.remove(episode.id);
+    _resetRadioSurface();
     _recordRecentEpisode(episode);
     _syncTicker();
+    unawaited(_engine.start(episode.audioUrl ?? ''));
     notifyListeners();
   }
 
   void toggle() {
     if (_audioType == AudioType.none) return;
-    _status = _status == PlayerStatus.playing ? PlayerStatus.paused : PlayerStatus.playing;
+    final bool wasPlaying = _status == PlayerStatus.playing;
+    _status = wasPlaying ? PlayerStatus.paused : PlayerStatus.playing;
+    unawaited(wasPlaying ? _engine.pause() : _engine.resume());
     _syncTicker();
     notifyListeners();
   }
@@ -237,6 +443,8 @@ class PlaybackController extends ChangeNotifier {
     _status = PlayerStatus.stopped;
     _currentStation = null;
     _currentEpisode = null;
+    _resetRadioSurface();
+    unawaited(_engine.stop());
     _syncTicker();
     notifyListeners();
   }
@@ -359,6 +567,9 @@ class PlaybackController extends ChangeNotifier {
   void dispose() {
     _ticker?.cancel();
     _sleepTicker?.cancel();
+    _radioRetryTimer?.cancel();
+    _engineSub?.cancel();
+    unawaited(_engine.disposeEngine());
     super.dispose();
   }
 }

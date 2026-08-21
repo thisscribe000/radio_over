@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../data/content_scope.dart';
 import '../models/station.dart';
 import '../playback/playback_controller.dart';
 import '../screens/radio_player_screen.dart';
@@ -24,9 +27,12 @@ import '../widgets/radio_mini_player.dart';
 /// across the tab bar because the screen stays mounted. The bottom podcast
 /// mini-player slot lives in the app shell.
 class RadioScreen extends StatefulWidget {
-  const RadioScreen({super.key, required this.controller});
+  const RadioScreen({super.key, required this.controller, this.content});
 
   final PlaybackController controller;
+
+  /// Content source; defaults to the offline mock scope when not provided.
+  final AppContent? content;
 
   @override
   State<RadioScreen> createState() => _RadioScreenState();
@@ -35,10 +41,7 @@ class RadioScreen extends StatefulWidget {
 class _RadioScreenState extends State<RadioScreen> {
   static const Duration _playerDuration = Duration(milliseconds: 280);
 
-  /// Curated highlight reel — the stations pushed most.
-  static final List<RadioStation> _popular = mockStations.take(5).toList();
-
-  String? _category;
+  late final AppContent _content = widget.content ?? AppContent.mock();
 
   /// Name of the station the listener dismissed; null while the top strip is
   /// (or should be) visible. Choosing a different station clears it.
@@ -46,16 +49,30 @@ class _RadioScreenState extends State<RadioScreen> {
 
   PlaybackController get controller => widget.controller;
 
+  /// Curated highlight reel — the stations pushed most.
+  List<RadioStation> get _popular => _content.stations.take(5).toList();
+
+  /// The station to feature in LIVE NOW.
+  RadioStation? get _featured =>
+      _content.stations.isEmpty ? null : _content.stations.first;
+
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_syncRadioDismissal);
+    _content.addListener(_onContentChanged);
+    unawaited(_content.loadRadio());
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_syncRadioDismissal);
+    _content.removeListener(_onContentChanged);
     super.dispose();
+  }
+
+  void _onContentChanged() {
+    if (mounted) setState(() {});
   }
 
   void _syncRadioDismissal() {
@@ -73,28 +90,33 @@ class _RadioScreenState extends State<RadioScreen> {
     return 'Good evening';
   }
 
-  void _toggleFavourite(String stationName) {
-    controller.toggleFavouriteStation(stationName);
+  void _toggleFavourite(RadioStation station) {
+    controller.toggleFavouriteStation(station.stationId, details: station);
   }
 
   void _openRadioPlayer() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => RadioPlayerScreen(controller: controller),
+        builder: (_) => RadioPlayerScreen(
+          controller: controller,
+          content: _content,
+        ),
       ),
     );
   }
 
   void _startFeatured() {
-    final RadioStation station = featuredStation;
-    if (controller.currentStation?.name != station.name) {
+    final RadioStation? station = _featured;
+    if (station == null) return;
+    if (controller.currentStation?.stationId != station.stationId) {
       controller.playRadioStation(station);
     }
     _openRadioPlayer();
   }
 
   void _playStation(RadioStation station) {
-    if (controller.currentStation?.name == station.name && controller.isPlaying) {
+    if (controller.currentStation?.stationId == station.stationId &&
+        controller.isPlaying) {
       controller.toggle();
     } else {
       controller.playRadioStation(station);
@@ -102,7 +124,8 @@ class _RadioScreenState extends State<RadioScreen> {
   }
 
   /// Returns true when a station is marked saved.
-  bool _isFavourite(RadioStation station) => controller.isFavouriteStation(station.name);
+  bool _isFavourite(RadioStation station) =>
+      controller.isFavouriteStation(station.stationId);
 
   /// Opens the Station Detail page. Rows keep their quick-listen behaviour;
   /// this is the quiet "view station" route off the full list.
@@ -112,6 +135,7 @@ class _RadioScreenState extends State<RadioScreen> {
         builder: (_) => StationDetailScreen(
           station: station,
           controller: controller,
+          content: _content,
         ),
       ),
     );
@@ -181,6 +205,7 @@ class _RadioScreenState extends State<RadioScreen> {
                     _buildCarousel('section-popular', _popular),
                     const SizedBox(height: 32),
                     _buildCategories(),
+                    _buildCountries(),
                     if (controller.recentStations.isNotEmpty) ...[
                       const SizedBox(height: 32),
                       const Text('RECENTLY PLAYED', style: AppTextStyles.sectionLabel),
@@ -192,11 +217,7 @@ class _RadioScreenState extends State<RadioScreen> {
                     const SizedBox(height: 4),
                     _buildFavourites(),
                     const SizedBox(height: 32),
-                    Text(
-                      'LIVE STATIONS',
-                      key: const ValueKey('section-stations'),
-                      style: AppTextStyles.sectionLabel,
-                    ),
+                    _buildStationsHeader(),
                     const SizedBox(height: 6),
                     ..._buildStationRows(),
                   ],
@@ -239,7 +260,10 @@ class _RadioScreenState extends State<RadioScreen> {
   /// The LIVE NOW feature: a bordered block that starts playback and opens
   /// the existing Radio Player.
   Widget _buildFeatured() {
-    final RadioStation station = featuredStation;
+    final RadioStation? station = _featured;
+    if (station == null) {
+      return const SizedBox.shrink();
+    }
     final bool isActive = controller.radioActive &&
         controller.currentStation?.name == station.name;
     final String meta = [
@@ -299,16 +323,19 @@ class _RadioScreenState extends State<RadioScreen> {
           return _StationCard(
             station: station,
             active: controller.radioActive &&
-                controller.currentStation?.name == station.name,
+                controller.currentStation?.stationId == station.stationId,
             favourite: _isFavourite(station),
             onTap: () => _playStation(station),
-            onFavourite: () => _toggleFavourite(station.name),
+            onFavourite: () => _toggleFavourite(station),
           );
         },
       ),
     );
   }
 
+  /// Category chips are derived from the catalogue (mock or live) rather
+  /// than a hard-coded list, so real sources drive discovery. Selecting one
+  /// browses the source by tag; tapping it again clears the scope.
   Widget _buildCategories() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,13 +346,11 @@ class _RadioScreenState extends State<RadioScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final String category in radioCategories)
+            for (final String category in _content.availableCategories.take(12))
               _CategoryChip(
                 label: category,
-                selected: _category == category,
-                onTap: () => setState(() {
-                  _category = _category == category ? null : category;
-                }),
+                selected: _content.browseTag == category,
+                onTap: () => unawaited(_content.browseByTag(category)),
               ),
           ],
         ),
@@ -333,11 +358,66 @@ class _RadioScreenState extends State<RadioScreen> {
     );
   }
 
+  /// Country chips, likewise derived from the loaded catalogue. Browsing by
+  /// country pulls real stations from the source when available.
+  Widget _buildCountries() {
+    final List<String> countries = _content.availableCountries;
+    if (countries.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 32),
+        const Text('COUNTRIES', style: AppTextStyles.sectionLabel),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final String country in countries.take(12))
+              _CategoryChip(
+                label: country,
+                selected: _content.browseCountry == country,
+                onTap: () => unawaited(_content.browseByCountry(country)),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStationsHeader() {
+    final String? scope = _content.browseTag ?? _content.browseCountry;
+    return Row(
+      children: [
+        Flexible(
+          child: Text(
+            scope == null ? 'LIVE STATIONS' : 'LIVE STATIONS · ${scope.toUpperCase()}',
+            key: const ValueKey('section-stations'),
+            style: AppTextStyles.sectionLabel,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (_content.isBrowsing) ...[
+          const SizedBox(width: 10),
+          const Text('LOADING…', style: AppTextStyles.nowPlayingLabel),
+        ],
+        const Spacer(),
+        if (scope != null)
+          GestureDetector(
+            key: const ValueKey('browse-clear'),
+            behavior: HitTestBehavior.opaque,
+            onTap: _content.clearBrowse,
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Text('SHOW ALL', style: AppTextStyles.nowPlayingLabel),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildFavourites() {
-    final List<RadioStation> favourites = [
-      for (final RadioStation station in mockStations)
-        if (controller.isFavouriteStation(station.name)) station,
-    ];
+    final List<RadioStation> favourites = controller.favouriteStationDetails;
     if (favourites.isEmpty) {
       return Container(
         key: const ValueKey('section-favourites'),
@@ -366,19 +446,17 @@ class _RadioScreenState extends State<RadioScreen> {
   }
 
   List<Widget> _buildStationRows() {
-    final List<RadioStation> stations = _category == null
-        ? mockStations
-        : [
-            for (final RadioStation station in mockStations)
-              if (station.category == _category) station,
-          ];
+    final bool browsing =
+        _content.browseTag != null || _content.browseCountry != null;
+    final List<RadioStation> stations =
+        browsing ? _content.browseStations : _content.stations;
     return [
       for (final RadioStation station in stations) ...[
         _StationRow(
           station: station,
           controller: controller,
-          favourite: controller.isFavouriteStation(station.name),
-          onFavourite: () => _toggleFavourite(station.name),
+          favourite: controller.isFavouriteStation(station.stationId),
+          onFavourite: () => _toggleFavourite(station),
           onDetails: () => _openStationDetail(station),
         ),
         const Divider(height: 1, thickness: 1, color: AppColors.hairline),
@@ -599,13 +677,14 @@ class _StationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isActive =
-        controller.radioActive && controller.currentStation?.name == station.name;
+    final bool isActive = controller.radioActive &&
+        controller.currentStation?.stationId == station.stationId;
     return GestureDetector(
       key: ValueKey('station-${station.name}'),
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        if (controller.currentStation?.name == station.name && controller.isPlaying) {
+        if (controller.currentStation?.stationId == station.stationId &&
+            controller.isPlaying) {
           controller.toggle();
         } else {
           controller.playRadioStation(station);

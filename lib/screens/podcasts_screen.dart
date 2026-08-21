@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../data/content_scope.dart';
 import '../models/podcast_episode.dart';
 import '../playback/playback_controller.dart';
 import '../screens/podcast_detail_screen.dart';
@@ -41,19 +44,48 @@ const List<String> podcastCategories = [
 /// The persistent mini-player slot lives in the app shell, so this screen
 /// only ever hands episodes to the shared [PlaybackController].
 class PodcastsScreen extends StatefulWidget {
-  const PodcastsScreen({super.key, required this.controller});
+  const PodcastsScreen({super.key, required this.controller, this.content});
 
   final PlaybackController controller;
+
+  /// Content source; defaults to the offline mock scope when not provided.
+  final AppContent? content;
 
   @override
   State<PodcastsScreen> createState() => _PodcastsScreenState();
 }
 
 class _PodcastsScreenState extends State<PodcastsScreen> {
+  late final AppContent _content = widget.content ?? AppContent.mock();
+
   /// The EXPLORE chip currently selected, if any.
   String? _exploreCategory;
 
   PlaybackController get controller => widget.controller;
+
+  /// The show + episode featured in the FEATURED block (the known catalogue's
+  /// first, which matches THE DAILY in the mock scope).
+  PodcastSeries? get _featuredShow =>
+      _content.shows.isEmpty ? null : _content.shows.first;
+  PodcastEpisode? get _featuredEpisode =>
+      _featuredShow?.episodes.isEmpty ?? true ? null : _featuredShow!.episodes.first;
+
+  @override
+  void initState() {
+    super.initState();
+    _content.addListener(_onContentChanged);
+    unawaited(_content.loadShows());
+  }
+
+  @override
+  void dispose() {
+    _content.removeListener(_onContentChanged);
+    super.dispose();
+  }
+
+  void _onContentChanged() {
+    if (mounted) setState(() {});
+  }
 
   void _playEpisode(PodcastEpisode episode) {
     controller.playPodcastEpisode(episode);
@@ -73,6 +105,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
         builder: (_) => PodcastDetailScreen(
           show: show,
           controller: controller,
+          content: _content,
         ),
       ),
     );
@@ -82,7 +115,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   void _openSearch() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SearchScreen(controller: controller),
+        builder: (_) => SearchScreen(controller: controller, content: _content),
       ),
     );
   }
@@ -100,7 +133,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
         controller.podcastPosition < current.duration) {
       inProgress.add(current);
     }
-    for (final PodcastEpisode episode in mockPodcastEpisodes) {
+    for (final PodcastEpisode episode in _content.episodes) {
       if (episode.position > Duration.zero &&
           !inProgress.any((e) => e.id == episode.id)) {
         inProgress.add(episode);
@@ -110,7 +143,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   }
 
   List<PodcastSeries> get _savedShows =>
-      [for (final PodcastSeries show in mockPodcasts) if (controller.isSavedShow(show.id)) show];
+      [for (final PodcastSeries show in _content.shows) if (controller.isSavedShow(show.id)) show];
 
   @override
   Widget build(BuildContext context) {
@@ -206,8 +239,11 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   // --- 2. FEATURED --------------------------------------------------------
 
   Widget _buildFeatured() {
-    final PodcastSeries show = featuredPodcast;
-    final PodcastEpisode episode = featuredEpisode;
+    final PodcastSeries? show = _featuredShow;
+    final PodcastEpisode? episode = _featuredEpisode;
+    if (show == null || episode == null) {
+      return const SizedBox.shrink();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -230,7 +266,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
       children: [
         const Text('LATEST EPISODES', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 6),
-        for (final PodcastEpisode episode in mockPodcastEpisodes) ...[
+        for (final PodcastEpisode episode in _content.episodes) ...[
           _LatestRow(episode: episode, onTap: () => _playEpisode(episode)),
           const Divider(height: 1, thickness: 1, color: AppColors.hairline),
         ],
@@ -277,10 +313,10 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: mockPodcasts.length,
+            itemCount: _content.shows.length,
             separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (context, index) {
-              final PodcastSeries show = mockPodcasts[index];
+              final PodcastSeries show = _content.shows[index];
               return _ShowCard(
                 show: show,
                 saved: controller.isSavedShow(show.id),

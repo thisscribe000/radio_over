@@ -35,3 +35,26 @@ String formatListenedAt(DateTime at) {
   ];
   return '${months[at.month - 1]} ${at.day}';
 }
+
+/// Formats when a podcast feed was last refreshed, for the quiet
+/// "UPDATED …" metadata line on the show screen.
+///
+/// Examples (against [now], defaulting to the real clock):
+///   - under a minute -> "UPDATED JUST NOW"
+///   - 4 minutes      -> "UPDATED 4M AGO"
+///   - 3 hours        -> "UPDATED 3H AGO"
+///   - 6 days         -> "UPDATED 6D AGO"
+///   - older          -> "AUG 12"
+String formatUpdatedAgo(DateTime at, {DateTime? now}) {
+  final DateTime reference = now ?? DateTime.now();
+  final Duration age = reference.difference(at);
+  if (age.inMinutes < 1) return 'UPDATED JUST NOW';
+  if (age.inMinutes < 60) return 'UPDATED ${age.inMinutes}M AGO';
+  if (age.inHours < 24) return 'UPDATED ${age.inHours}H AGO';
+  if (age.inDays < 7) return 'UPDATED ${age.inDays}D AGO';
+  const List<String> months = [
+    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+  ];
+  return '${months[at.month - 1]} ${at.day}';
+}

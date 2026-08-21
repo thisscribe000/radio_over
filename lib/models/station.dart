@@ -49,6 +49,15 @@ class RadioStation {
     this.language,
     this.website,
     this.schedule = const [],
+    this.logoUrl,
+    this.streamUrl,
+    this.streamType,
+    this.tags = const [],
+    this.bitrate,
+    this.codec,
+    this.favicon,
+    this.isOnline = true,
+    this.nowPlaying,
   });
 
   /// Stable unique identifier, e.g. "bbc-world-service". Falls back to the
@@ -81,6 +90,34 @@ class RadioStation {
 
   /// Today's and upcoming programmes, ordered by time.
   final List<RadioProgramme> schedule;
+
+  /// Direct URL to the audio stream, e.g. an Icecast/Shoutcast endpoint.
+  /// The player hands this to the playback engine when LISTEN LIVE is used.
+  final String? streamUrl;
+
+  /// Stream container media type, e.g. "audio/mpeg". Optional.
+  final String? streamType;
+
+  /// Free-form tags/categories reported by the directory, e.g. news, talk.
+  final List<String> tags;
+
+  /// Reported stream bitrate in kbps when the directory provides it.
+  final int? bitrate;
+
+  /// Reported stream codec, e.g. "MP3", "AAC". Optional.
+  final String? codec;
+
+  /// Square station artwork/logo URL from the directory. Optional.
+  final String? logoUrl;
+
+  /// Small favicon URL. Optional.
+  final String? favicon;
+
+  /// Whether the directory reports the stream as currently online.
+  final bool isOnline;
+
+  /// Free-form currently-airing programme if the source provides it.
+  final String? nowPlaying;
 
   /// Stable identity used by routes and keys.
   String get stationId => id ?? name;

@@ -7,6 +7,29 @@ enum AudioType { none, radio, podcast }
 /// Whether the current audio is actively outputting.
 enum PlayerStatus { stopped, playing, paused }
 
+/// Real connection state of the live radio stream, reported by the playback
+/// engine. The UI must never claim a station is live before the stream has
+/// actually connected — [connecting]/[buffering]/[error] exist so the player
+/// can say exactly what is happening.
+enum RadioConnectionState {
+  /// Nothing has been attempted yet.
+  idle,
+
+  /// A stream URL has been handed to the engine; waiting for audio.
+  connecting,
+
+  /// Audio was flowing but the stream is momentarily starved. Playback
+  /// resumes automatically when data returns — no teardown.
+  buffering,
+
+  /// The stream is connected and audibly playing.
+  playing,
+
+  /// The stream could not be opened/kept open (offline, dead URL,
+  /// unsupported format). Offers a manual retry after limited auto-retries.
+  error,
+}
+
 /// One listen recorded for the library's RECENTLY PLAYED history: either a
 /// broadcast station or a podcast episode, with the local time it started.
 /// Exactly one of [station] or [episode] is set.

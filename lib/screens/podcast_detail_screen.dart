@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../data/content_scope.dart';
+import '../data/podcasts/podcast_feed_refresh_service.dart';
 import '../models/podcast_episode.dart';
+import '../models/podcast_subscription.dart';
 import '../playback/playback_controller.dart';
 import '../screens/podcast_player_screen.dart';
 import '../theme.dart';
@@ -26,19 +31,29 @@ class PodcastDetailScreen extends StatefulWidget {
     super.key,
     required this.show,
     required this.controller,
+    this.content,
   });
 
   final PodcastSeries show;
   final PlaybackController controller;
+
+  /// Content source; defaults to the offline mock scope when not provided.
+  final AppContent? content;
 
   @override
   State<PodcastDetailScreen> createState() => _PodcastDetailScreenState();
 }
 
 class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
+  late final AppContent _content = widget.content ?? AppContent.mock();
+  late PodcastSeries _show = widget.show;
   bool _oldest = false;
   bool _descriptionOpen = false;
   bool _aboutOpen = false;
+
+  /// Outcome of the most recent explicit refresh on this screen; drives the
+  /// quiet error/retry line. Null until the listener pulls to refresh.
+  FeedRefreshResult? _lastResult;
 
   /// Titles of the currently dismissed mini players (episode id / station
   /// name); null while the strip is visible. Choosing something else clears.
@@ -51,6 +66,30 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
   void initState() {
     super.initState();
     widget.controller.addListener(_syncDismissal);
+    unawaited(_initialLoad());
+  }
+
+  /// Cache-first open: shows whatever is cached immediately, then lets the
+  /// feed refresh service decide whether the RSS feed is worth fetching
+  /// (never fetched, stale, or a skeleton) — never a blind fetch per rebuild.
+  Future<void> _initialLoad() async {
+    final PodcastSeries loaded = await _content.feedRefresh.resolveForDisplay(widget.show);
+    if (!mounted || identical(loaded, _show)) return;
+    setState(() {
+      _show = loaded;
+      _oldest = false;
+    });
+  }
+
+  /// Pull-to-refresh: force-fetch the feed, merge changes and update in place.
+  Future<void> _refreshFeed() async {
+    final FeedRefreshResult result = await _content.feedRefresh.refresh(_show, force: true);
+    if (!mounted) return;
+    setState(() {
+      _show = result.show;
+      _lastResult = result;
+      _oldest = false;
+    });
   }
 
   @override
@@ -71,8 +110,8 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
   }
 
   List<PodcastSeries> get _related => [
-        for (final PodcastSeries show in mockPodcasts)
-          if (show.id != widget.show.id) show,
+        for (final PodcastSeries show in _content.shows)
+          if (show.id != _show.id) show,
       ];
 
   /// Starts playback only, so the persistent mini player takes over and the
@@ -94,14 +133,18 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
   void _openShow(PodcastSeries show) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PodcastDetailScreen(show: show, controller: controller),
+        builder: (_) => PodcastDetailScreen(
+          show: show,
+          controller: controller,
+          content: _content,
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final PodcastSeries show = widget.show;
+    final PodcastSeries show = _show;
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -134,29 +177,34 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                 ),
               ),
               Expanded(
-                child: ListView(
-                  key: const ValueKey('podcast-detail-list'),
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
-                  children: [
-                    _buildHeader(show),
-                    const SizedBox(height: 28),
-                    _buildEpisodeHeading(),
-                    const SizedBox(height: 6),
-                    for (final PodcastEpisode episode in _episodes(show)) ...[
-                      _DetailEpisodeRow(
-                        episode: episode,
-                        controller: controller,
-                        onStart: () => _startEpisode(episode),
-                        onOpen: () => _openEpisode(episode),
-                      ),
-                      const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+                child: RefreshIndicator(
+                  onRefresh: _refreshFeed,
+                  child: ListView(
+                    key: const ValueKey('podcast-detail-list'),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+                    children: [
+                      _buildHeader(show),
+                      _buildRefreshStatusLine(show),
+                      const SizedBox(height: 28),
+                      _buildEpisodeHeading(),
+                      const SizedBox(height: 6),
+                      for (final PodcastEpisode episode in _episodes(show)) ...[
+                        _DetailEpisodeRow(
+                          episode: episode,
+                          controller: controller,
+                          onStart: () => _startEpisode(episode),
+                          onOpen: () => _openEpisode(episode),
+                        ),
+                        const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+                      ],
+                      const SizedBox(height: 28),
+                      _buildAbout(show),
+                      const SizedBox(height: 28),
+                      _buildRelated(),
+                      const SizedBox(height: 12),
                     ],
-                    const SizedBox(height: 28),
-                    _buildAbout(show),
-                    const SizedBox(height: 28),
-                    _buildRelated(),
-                    const SizedBox(height: 12),
-                  ],
+                  ),
                 ),
               ),
               _buildMiniSlot(),
@@ -209,6 +257,28 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
           onTap: () => controller.toggleSavedShow(show.id),
         ),
       ],
+    );
+  }
+
+  /// Quiet sync metadata under the follow action: when the feed was last
+  /// refreshed, or a gentle error/retry hint. Absent until there is something
+  /// worth saying — no clutter on first sight.
+  Widget _buildRefreshStatusLine(PodcastSeries show) {
+    final FeedRefreshResult? result = _lastResult;
+    final String? line;
+    if (result != null && result.status == FeedRefreshStatus.networkError) {
+      line = "COULDN'T REFRESH · PULL TO RETRY";
+    } else if (result != null && result.status == FeedRefreshStatus.invalidFeed) {
+      line = 'FEED COULD NOT BE READ';
+    } else {
+      final DateTime? at = _content.feedRefresh.lastSuccessfulFetch(show.id);
+      line = at == null ? null : formatUpdatedAgo(at);
+    }
+    if (line == null) return const SizedBox(width: double.infinity);
+    return Padding(
+      key: const ValueKey('detail-refresh-status'),
+      padding: const EdgeInsets.only(top: 10),
+      child: Text(line, style: AppTextStyles.timeLabel.copyWith(color: AppColors.muted)),
     );
   }
 
@@ -491,6 +561,7 @@ class _DetailEpisodeRow extends StatelessWidget {
     final bool partial = position > Duration.zero && position < episode.duration;
     final bool completed = episode.isCompleted || position >= episode.duration;
     final bool showProgress = partial || active;
+    final bool isNew = controller.isNewEpisode(episode.id);
 
     return GestureDetector(
       key: ValueKey('detail-row-${episode.id}'),
@@ -543,9 +614,17 @@ class _DetailEpisodeRow extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  Text(
-                    '${formatDuration(episode.duration)} · ${episode.published?.toUpperCase() ?? ''}',
-                    style: AppTextStyles.timeLabel,
+                  Row(
+                    children: [
+                      if (isNew) ...[
+                        _NewBadge(episodeId: episode.id),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(
+                        '${formatDuration(episode.duration)} · ${episode.published?.toUpperCase() ?? ''}',
+                        style: AppTextStyles.timeLabel,
+                      ),
+                    ],
                   ),
                   if (showProgress) ...[
                     const SizedBox(height: 8),
@@ -598,10 +677,30 @@ class _DetailEpisodeRow extends StatelessWidget {
   }
 }
 
+/// Quiet NEW tag for freshly discovered episodes. Disappears once the
+/// listener opens/plays the episode (the controller clears the unseen flag).
+class _NewBadge extends StatelessWidget {
+  const _NewBadge({required this.episodeId});
+
+  final String episodeId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey('detail-new-$episodeId'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(border: Border.all(color: AppColors.podcastAccent)),
+      child: Text(
+        'NEW',
+        style: AppTextStyles.timeLabel.copyWith(color: AppColors.podcastAccent),
+      ),
+    );
+  }
+}
+
 /// Small filled play circle for episode rows; swaps to pause while that
 /// episode is the one actually playing.
-class _PlayCircle extends StatelessWidget {
-  const _PlayCircle({this.playing = false});
+class _PlayCircle extends StatelessWidget {  const _PlayCircle({this.playing = false});
 
   final bool playing;
 

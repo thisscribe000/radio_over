@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../data/content_scope.dart';
+import '../models/playback.dart';
 import '../models/station.dart';
 import '../playback/playback_controller.dart';
 import '../theme.dart';
@@ -20,26 +22,71 @@ import '../widgets/sleep_timer_sheet.dart';
 /// timelines, no scrub — just the station, the current programme, and the
 /// broadcast activity line.
 class RadioPlayerScreen extends StatefulWidget {
-  const RadioPlayerScreen({super.key, required this.controller});
+  const RadioPlayerScreen({super.key, required this.controller, this.content});
 
   final PlaybackController controller;
+
+  /// Content catalogue used for NEXC/PREVIOUS station ordering. Defaults to
+  /// the offline mock scope when not provided.
+  final AppContent? content;
 
   @override
   State<RadioPlayerScreen> createState() => _RadioPlayerScreenState();
 }
 
 class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
+  late final AppContent _content = widget.content ?? AppContent.mock();
+
   /// Set once the underlying listen stops (e.g. the sleep timer expires) so
   /// the route pops itself exactly once instead of once per rebuild.
   bool _exiting = false;
 
+  /// While connecting or buffering the badge must not claim a live broadcast.
+  bool get _isBufferingLike {
+    final RadioConnectionState state = widget.controller.radioState;
+    return state == RadioConnectionState.connecting ||
+        state == RadioConnectionState.buffering;
+  }
+
+  /// Quiet, honest stream status under the programme line: what the player
+  /// is actually doing, with an explicit TRY AGAIN once automatic
+  /// reconnection has been exhausted.
+  Widget _buildStreamStatus() {
+    final PlaybackController controller = widget.controller;
+    switch (controller.radioState) {
+      case RadioConnectionState.connecting:
+        return const Text('CONNECTING…', key: ValueKey('stream-status'),
+            style: AppTextStyles.nowPlayingLabel);
+      case RadioConnectionState.buffering:
+        return const Text('BUFFERING…', key: ValueKey('stream-status'),
+            style: AppTextStyles.nowPlayingLabel);
+      case RadioConnectionState.error:
+        return GestureDetector(
+          key: const ValueKey('stream-retry'),
+          behavior: HitTestBehavior.opaque,
+          onTap: controller.retryRadio,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Text("UNABLE TO CONNECT · TRY AGAIN",
+                key: ValueKey('stream-status'),
+                style: AppTextStyles.nowPlayingLabel),
+          ),
+        );
+      case RadioConnectionState.idle:
+      case RadioConnectionState.playing:
+        return const SizedBox.shrink();
+    }
+  }
+
   void _switchStation(int delta) {
     final RadioStation? station = widget.controller.currentStation;
-    if (station == null) return;
-    final int index = mockStations.indexOf(station);
+    if (station == null || _content.stations.isEmpty) return;
+    final int index =
+        _content.stations.indexWhere((s) => s.stationId == station.stationId);
     if (index < 0) return;
+    final List<RadioStation> stations = _content.stations;
     widget.controller
-        .playRadioStation(mockStations[(index + delta) % mockStations.length]);
+        .playRadioStation(stations[(index + delta) % stations.length]);
   }
 
   /// Unavoidably a platform action: shares the current listen via the native
@@ -80,7 +127,7 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
         }
         final RadioStation station = widget.controller.currentStation!;
         final bool playing = widget.controller.isPlaying;
-        final bool favourite = widget.controller.isFavouriteStation(station.name);
+        final bool favourite = widget.controller.isFavouriteStation(station.stationId);
         return Scaffold(
           body: SafeArea(
             child: Padding(
@@ -92,7 +139,10 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
                     child: Column(
                       children: [
                         const Spacer(flex: 2),
-                        LiveBadge(animate: playing),
+                        LiveBadge(
+                          animate:
+                              playing && !_isBufferingLike,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           station.name.toUpperCase(),
@@ -101,10 +151,13 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          station.program,
+                          widget.controller.radioNowPlaying ?? station.program,
+                          key: const ValueKey('player-program'),
                           style: AppTextStyles.stationProgramme,
                           textAlign: TextAlign.center,
                         ),
+                        const SizedBox(height: 14),
+                        _buildStreamStatus(),
                         const Spacer(flex: 1),
                         Flexible(
                           flex: 4,
@@ -124,10 +177,14 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
                     playing: playing,
                     favourite: favourite,
                     sleepActive: widget.controller.sleepActive,
-                    onPlayPause: widget.controller.toggle,
+                    onPlayPause: () =>
+                        widget.controller.radioState == RadioConnectionState.error
+                            ? widget.controller.retryRadio()
+                            : widget.controller.toggle(),
                     onPrevious: () => _switchStation(-1),
                     onNext: () => _switchStation(1),
-                    onFavourite: () => widget.controller.toggleFavouriteStation(station.name),
+                    onFavourite: () => widget.controller
+                .toggleFavouriteStation(station.stationId, details: station),
                     onShare: () => _share(station),
                     onSleep: () => _openSleepTimer(context),
                   ),

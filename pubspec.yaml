@@ -7,9 +7,15 @@ environment:
   sdk: ^3.11.1
 
 dependencies:
+  crypto: ^3.0.7
   flutter:
     sdk: flutter
+  http: ^1.6.0
+  just_audio: ^0.10.6
+  path_provider: ^2.1.6
   share_plus: ^13.3.0
+  shared_preferences: ^2.5.5
+  xml: ^7.0.1
 
 dev_dependencies:
   flutter_test:
