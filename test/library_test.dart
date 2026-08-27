@@ -1,6 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:radio_over/data/downloads/download_manager.dart';
+import 'package:radio_over/data/downloads/download_store.dart';
+import 'package:radio_over/models/download.dart';
 import 'package:radio_over/models/podcast_episode.dart';
 import 'package:radio_over/models/station.dart';
 import 'package:radio_over/navigation/app_shell.dart';
@@ -14,14 +19,27 @@ import 'package:radio_over/utils/format.dart';
 import 'package:radio_over/widgets/podcast_mini_player.dart';
 import 'package:radio_over/widgets/radio_mini_player.dart';
 
+/// A download store that returns a fixed list, modelling a restored state.
+class _FixedDownloadStore implements DownloadStore {
+  _FixedDownloadStore(this._items);
+  final List<DownloadItem> _items;
+
+  @override
+  Future<List<DownloadItem>> load() async => List<DownloadItem>.of(_items);
+
+  @override
+  Future<void> save(List<DownloadItem> items) async {}
+}
+
 /// Runs a test against the shell. The tree is unmounted before the controller
 /// is disposed so the playback clock is always cancelled before the framework
 /// checks for pending timers.
 Future<void> runLibraryTest(
   WidgetTester tester,
-  Future<void> Function(WidgetTester, PlaybackController) body,
-) async {
-  final PlaybackController controller = PlaybackController();
+  Future<void> Function(WidgetTester, PlaybackController) body, {
+  DownloadManager? downloads,
+}) async {
+  final PlaybackController controller = PlaybackController(downloads: downloads);
   await tester.pumpWidget(
     MaterialApp(
       theme: buildAppTheme(),
@@ -271,31 +289,67 @@ void main() {
       });
     });
 
-    testWidgets('downloads entry counts episodes and opens its route', (tester) async {
-      await runLibraryTest(tester, (tester, controller) async {
-        controller.toggleDownloaded('99pi-airport-codes');
-        await switchToLibrary(tester);
-
-        await revealInLibrary(tester, find.byKey(const ValueKey('library-downloads')));
-        expect(libraryText('1 episode available offline'), findsOneWidget);
-
-        await tester.tap(find.byKey(const ValueKey('library-downloads')));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 400));
-
-        expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('downloads-list')),
-            matching: find.text('The Secret Lives of Airport Codes'),
-          ),
-          findsOneWidget,
+    testWidgets('downloads entry counts completed downloads and opens the route', (tester) async {
+      // Real file IO must run via runAsync: a bare `await` on IO inside a
+      // testWidgets body deadlocks under the Flutter test event loop.
+      final DownloadManager manager = (await tester.runAsync<DownloadManager>(() async {
+        final Directory base = await Directory.systemTemp.createTemp('dl-');
+        final File file = File(
+          '${base.path}/podcast_downloads/99pi/episode_99pi-airport-codes.mp3',
         );
-        expect(find.byKey(const ValueKey('downloads-empty')), findsNothing);
+        await file.create(recursive: true);
+        await file.writeAsBytes(const [1, 2, 3, 4]);
+        final DownloadStore store = _FixedDownloadStore([
+          DownloadItem(
+            id: '99pi-airport-codes',
+            episodeId: '99pi-airport-codes',
+            podcastId: '99pi',
+            audioUrl: 'https://example.com/a.mp3',
+            localPath: file.path,
+            fileName: 'episode_99pi-airport-codes.mp3',
+            status: DownloadStatus.completed,
+            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+            completedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            downloadedBytes: 4,
+            totalBytes: 4,
+            progress: 1,
+          ),
+        ]);
+        final DownloadManager m = DownloadManager(
+          store: store,
+          resolveBaseDir: () async => base,
+        );
+        await m.restored;
+        return m;
+      }))!;
 
-        await tester.tap(find.byKey(const ValueKey('downloads-back')));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('library-list')), findsOneWidget);
-      });
+      await runLibraryTest(
+        tester,
+        (tester, controller) async {
+          await switchToLibrary(tester);
+
+          await revealInLibrary(tester, find.byKey(const ValueKey('library-downloads')));
+          expect(libraryText('1 episode available offline'), findsOneWidget);
+
+          await tester.tap(find.byKey(const ValueKey('library-downloads')));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('downloads-list')),
+              matching: find.text('The Secret Lives of Airport Codes'),
+            ),
+            findsOneWidget,
+          );
+          expect(find.byKey(const ValueKey('downloads-empty')), findsNothing);
+
+          await tester.tap(find.byKey(const ValueKey('downloads-back')));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('library-list')), findsOneWidget);
+        },
+        downloads: manager,
+      );
     });
 
     testWidgets('filters narrow the library content without navigating away', (tester) async {

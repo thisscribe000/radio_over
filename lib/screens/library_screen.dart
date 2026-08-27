@@ -7,6 +7,7 @@ import '../models/station.dart';
 import '../playback/playback_controller.dart';
 import '../screens/podcast_detail_screen.dart';
 import '../screens/podcast_player_screen.dart';
+import '../screens/downloads_screen.dart';
 import '../screens/station_detail_screen.dart';
 import '../screens/history_screen.dart';
 import '../theme.dart';
@@ -108,27 +109,33 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return null;
   }
 
-  /// Episodes that can be picked up where they were left: the episode
-  /// currently audibly in progress (live position) plus any episodes with
-  /// saved progress in the catalogue. Same source as the podcast home's
-  /// CONTINUE LISTENING section.
+  /// Episodes that can be picked up where they were left, most recently
+  /// updated first. Sourced from the controller's persisted/observed progress
+  /// (which also back-fills catalogue-synthesised positions for mock fixtures),
+  /// with the live current episode surfacing via its up-to-date record.
   List<PodcastEpisode> _inProgress() {
-    final List<PodcastEpisode> inProgress = [];
-    final PodcastEpisode? current = controller.currentEpisode;
-    if (controller.podcastActive &&
-        current != null &&
-        controller.podcastPosition > Duration.zero &&
-        controller.podcastPosition < current.duration) {
-      inProgress.add(current);
-    }
+    final List<PodcastEpisode> inProgress = <PodcastEpisode>[];
     for (final PodcastEpisode episode in _content.episodes) {
-      if (episode.position > Duration.zero &&
-          !inProgress.any((e) => e.id == episode.id)) {
+      if (controller.progressForEpisode(episode) case final _?) {
         inProgress.add(episode);
       }
     }
+    final PodcastEpisode? current = controller.currentEpisode;
+    if (controller.podcastActive &&
+        current != null &&
+        !inProgress.any((e) => e.id == current.id) &&
+        controller.progressForEpisode(current) != null) {
+      inProgress.add(current);
+    }
+    inProgress.sort((a, b) {
+      final DateTime? pa = controller.progressForEpisode(a)?.updatedAt;
+      final DateTime? pb = controller.progressForEpisode(b)?.updatedAt;
+      return (pb ?? _syntheticTime).compareTo(pa ?? _syntheticTime);
+    });
     return inProgress;
   }
+
+  static final DateTime _syntheticTime = DateTime.fromMillisecondsSinceEpoch(0);
 
   List<PodcastSeries> get _savedShows => [
         for (final PodcastSeries show in _content.shows)
@@ -214,7 +221,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _openDownloads() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _DownloadsPlaceholderScreen(episodes: _downloaded),
+        builder: (_) => DownloadsScreen(controller: controller, content: _content),
       ),
     );
   }
@@ -742,10 +749,15 @@ class _ContinueRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool active = controller.podcastActive && controller.currentEpisode?.id == episode.id;
-    final Duration position = active ? controller.podcastPosition : episode.position;
-    final double fraction = episode.duration.inMilliseconds == 0
+    final Duration position = active
+        ? controller.podcastPosition
+        : (controller.progressForEpisode(episode)?.position ?? episode.position);
+    final Duration duration = episode.duration > Duration.zero
+        ? episode.duration
+        : (controller.progressForEpisode(episode)?.duration ?? episode.duration);
+    final double fraction = duration.inMilliseconds == 0
         ? 0
-        : (position.inMilliseconds / episode.duration.inMilliseconds).clamp(0.0, 1.0);
+        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
 
     return GestureDetector(
       key: ValueKey('library-continue-${episode.id}'),
@@ -776,7 +788,7 @@ class _ContinueRow extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        '${formatDuration(position)} / ${formatDuration(episode.duration)}',
+                        '${formatDuration(position)} / ${formatDuration(duration)}',
                         style: AppTextStyles.timeLabel,
                       ),
                       const Spacer(),
@@ -850,7 +862,9 @@ class _SavedEpisodeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool active = controller.podcastActive && controller.currentEpisode?.id == episode.id;
-    final Duration position = active ? controller.podcastPosition : episode.position;
+    final Duration position = active
+        ? controller.podcastPosition
+        : (controller.progressForEpisode(episode)?.position ?? episode.position);
     final bool partial = position > Duration.zero && position < episode.duration;
     final bool completed = episode.isCompleted || position >= episode.duration;
     final bool showProgress = partial || active;
@@ -1226,121 +1240,6 @@ class _RadioPlayCircle extends StatelessWidget {
               color: AppColors.background,
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A minimal stand-in for the future dedicated Downloads screen. Only the
-/// navigation entry is built now; this stub lists what is already offline.
-class _DownloadsPlaceholderScreen extends StatelessWidget {
-  const _DownloadsPlaceholderScreen({required this.episodes});
-
-  final List<PodcastEpisode> episodes;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    key: const ValueKey('downloads-back'),
-                    tooltip: 'Back',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
-                  ),
-                  const Expanded(
-                    child: Center(child: Text('DOWNLOADS', style: AppTextStyles.navLabel)),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                key: const ValueKey('downloads-list'),
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                children: [
-                  const Text('READY OFFLINE', style: AppTextStyles.sectionLabel),
-                  const SizedBox(height: 6),
-                  Text(
-                    episodes.isEmpty
-                        ? 'No downloads yet'
-                        : '${episodes.length} episode${episodes.length == 1 ? '' : 's'} available',
-                    style: AppTextStyles.stationCategory,
-                  ),
-                  const SizedBox(height: 12),
-                  if (episodes.isEmpty)
-                    Container(
-                      key: const ValueKey('downloads-empty'),
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.hairline),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 20),
-                      child: Column(
-                        children: const [
-                          Text(
-                            'Offline listening is coming soon',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Download episodes from the player and manage them here.',
-                            style: AppTextStyles.stationCategory,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    for (final PodcastEpisode episode in episodes) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
-                          children: [
-                            PodcastArt(title: episode.podcastName, size: 36),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    episode.title,
-                                    style: AppTextStyles.stationName,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    episode.podcastName.toUpperCase(),
-                                    style: AppTextStyles.timeLabel,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(formatDuration(episode.duration), style: AppTextStyles.timeLabel),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1, thickness: 1, color: AppColors.hairline),
-                    ],
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

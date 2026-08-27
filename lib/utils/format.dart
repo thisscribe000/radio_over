@@ -1,3 +1,23 @@
+/// Formats a byte count as a short human-readable size.
+///
+/// Examples:
+///   - 512        -> "512 B"
+///   - 1536       -> "1.5 KB"
+///   - 2_000_000  -> "2.0 MB"
+///   - 8_000_000_000 -> "8.0 GB"
+String formatBytes(int bytes) {
+  if (bytes <= 0) return '0 B';
+  const List<String> units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  int unit = 0;
+  double value = bytes.toDouble();
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  final String rounded = unit == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1);
+  return '$rounded ${units[unit]}';
+}
+
 /// Formats a [Duration] as a compact clock string.
 ///
 /// Examples:

@@ -114,6 +114,15 @@ class AppContent extends ChangeNotifier {
     return null;
   }
 
+  /// A single episode by id across every known show, or null when unknown.
+  PodcastEpisode? episodeById(String id) {
+    for (final PodcastSeries show in _shows) {
+      final PodcastEpisode? episode = show.episodeById(id);
+      if (episode != null) return episode;
+    }
+    return null;
+  }
+
   /// Inserts or replaces [show] in the catalogue (matched by id) and notifies
   /// listeners. The feed refresh service writes merged shows through here so
   /// every surface picks up new episodes without any per-screen plumbing.

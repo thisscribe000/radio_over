@@ -7,11 +7,14 @@ environment:
   sdk: ^3.11.1
 
 dependencies:
+  audio_service: ^0.18.19
+  audio_session: ^0.2.0
   crypto: ^3.0.7
   flutter:
     sdk: flutter
   http: ^1.6.0
   just_audio: ^0.10.6
+  path: ^1.9.0
   path_provider: ^2.1.6
   share_plus: ^13.3.0
   shared_preferences: ^2.5.5

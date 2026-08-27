@@ -1,9 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/downloads/download_manager.dart';
+import '../data/downloads/download_store.dart';
 import '../data/favourites/favourite_station_store.dart';
+import '../data/library/library_store.dart';
+import '../data/progress/playback_progress_store.dart';
+import '../models/download.dart';
 import '../models/playback.dart';
+import '../models/playback_progress.dart';
 import '../models/podcast_episode.dart';
 import '../models/station.dart';
 import 'audio_engine.dart';
@@ -23,6 +30,9 @@ class PlaybackController extends ChangeNotifier {
   /// allowed to declare UNABLE TO CONNECT. A manual retry always resets this.
   static const int maxRadioRetries = 2;
 
+  /// Cap on rows the Continue Listening section shows at once.
+  static const int maxContinueListeningItems = 10;
+
   /// Injectable clock so the sleep timer's expiry can be driven
   /// deterministically in tests. Defaults to the real wall clock.
   final DateTime Function() _now;
@@ -38,22 +48,53 @@ class PlaybackController extends ChangeNotifier {
   /// Persists favourite stations across restarts. Defaults to memory-only.
   final FavouriteStationStore _favouriteStore;
 
+  /// Persists saved episodes + followed shows across restarts. Defaults to
+  /// memory-only so tests never touch platform channels.
+  final LibraryStore _libraryStore;
+
+  /// Persists podcast playback progress (position/duration/timestamps) across
+  /// restarts. Defaults to memory-only.
+  final PlaybackProgressStore _progressStore;
+
+  /// Cap on how often playback progress is written to storage. Position is
+  /// held in memory every tick (so Continue Listening stays live); the store
+  /// is only written this frequently to avoid hammering disk each second.
+  final Duration progressPersistInterval;
+
+  /// Owns podcast episode downloads. Defaults to an internal manager with an
+  /// in-memory store so tests that never touch downloads are unaffected.
+  final DownloadManager downloads;
+
   StreamSubscription<AudioEngineEvent>? _engineSub;
 
   PlaybackController({
     DateTime Function()? clock,
     AudioEngine? engine,
     FavouriteStationStore? favouriteStore,
+    LibraryStore? libraryStore,
+    PlaybackProgressStore? progressStore,
+    DownloadManager? downloads,
+    Duration? progressPersistInterval,
     this.radioRetryDelay = const Duration(seconds: 2),
   })  : _now = clock ?? DateTime.now,
         _engine = engine ?? SimulatedAudioEngine(),
-        _favouriteStore = favouriteStore ?? InMemoryFavouriteStationStore() {
+        _favouriteStore = favouriteStore ?? InMemoryFavouriteStationStore(),
+        _libraryStore = libraryStore ?? InMemoryLibraryStore(),
+        _progressStore = progressStore ?? InMemoryPlaybackProgressStore(),
+        downloads = downloads ??
+            DownloadManager(
+              store: InMemoryDownloadStore(),
+              resolveBaseDir: () async => Directory.systemTemp,
+            ),
+        progressPersistInterval = progressPersistInterval ?? const Duration(seconds: 10) {
     final AudioEngine engine = _engine;
     if (engine is StatefulAudioEngine) {
       _engineSub = engine.events
           .listen(_onEngineEvent, onError: (_) => _handleRadioError());
     }
+    this.downloads.addListener(notifyListeners);
     unawaited(_loadFavourites());
+    unawaited(_loadPersisted());
   }
 
   /// The engine currently driving sound (exposed for future wiring).
@@ -63,16 +104,27 @@ class PlaybackController extends ChangeNotifier {
   PlayerStatus _status = PlayerStatus.stopped;
   RadioStation? _currentStation;
   PodcastEpisode? _currentEpisode;
+
+  /// True when the current podcast episode failed to start and is not yet
+  /// downloaded — drives the offline hint on the player.
+  bool _podcastStartFailed = false;
   final List<ListenRecord> _recent = [];
   final List<ListeningHistoryItem> _history = [];
   final Map<String, RadioStation> _favouriteStations = {};
   final Set<String> _savedShows = {};
   final Set<String> _savedEpisodes = {};
-  final Set<String> _downloadedEpisodes = {};
   final Set<String> _unseenEpisodes = {};
   Timer? _ticker;
   SleepTimerState? _sleepTimer;
   Timer? _sleepTicker;
+
+  /// Persisted podcast progress keyed by episode id. Mirrors the real
+  /// catalogue-independent [PlaybackProgress] records restored at startup.
+  final Map<String, PlaybackProgress> _progress = {};
+
+  /// Periodic writer that flushes in-memory progress to the store. Runs only
+  /// while a podcast is actively playing, at [progressPersistInterval].
+  Timer? _progressPersistTimer;
 
   RadioConnectionState _radioState = RadioConnectionState.idle;
   String? _radioMetadata;
@@ -192,6 +244,41 @@ class PlaybackController extends ChangeNotifier {
     }
   }
 
+  /// Restores the listener's saved shows, saved episodes and playback progress
+  /// from their persistent stores. Each is loaded only when still empty so a
+  /// pre-populated in-session state (e.g. a freshly saved item) wins.
+  Future<void> _loadPersisted() async {
+    try {
+      final List<String> shows = await _libraryStore.loadSavedShows();
+      if (shows.isNotEmpty && _savedShows.isEmpty) {
+        _savedShows.addAll(shows);
+        notifyListeners();
+      }
+    } on Exception {
+      // Best-effort; in-session state stays authoritative.
+    }
+    try {
+      final List<String> episodes = await _libraryStore.loadSavedEpisodes();
+      if (episodes.isNotEmpty && _savedEpisodes.isEmpty) {
+        _savedEpisodes.addAll(episodes);
+        notifyListeners();
+      }
+    } on Exception {
+      // Best-effort.
+    }
+    try {
+      final Map<String, PlaybackProgress> restored = await _progressStore.load();
+      if (restored.isNotEmpty && _progress.isEmpty) {
+        _progress
+          ..clear()
+          ..addAll(restored);
+        notifyListeners();
+      }
+    } on Exception {
+      // Best-effort; progress stays session-only.
+    }
+  }
+
   /// Shows the listener saved, shared across the Podcasts home and the show
   /// detail screen so FOLLOW/SAVED is one consistent state.
   Set<String> get savedShows => Set.unmodifiable(_savedShows);
@@ -202,7 +289,16 @@ class PlaybackController extends ChangeNotifier {
     if (!_savedShows.remove(showId)) {
       _savedShows.add(showId);
     }
+    unawaited(_persistSavedShows());
     notifyListeners();
+  }
+
+  Future<void> _persistSavedShows() async {
+    try {
+      await _libraryStore.saveSavedShows(_savedShows.toList());
+    } on Exception {
+      // Best-effort.
+    }
   }
 
   /// Individually saved podcast episodes, shared between the podcast player's
@@ -215,21 +311,54 @@ class PlaybackController extends ChangeNotifier {
     if (!_savedEpisodes.remove(episodeId)) {
       _savedEpisodes.add(episodeId);
     }
+    unawaited(_persistSavedEpisodes());
     notifyListeners();
   }
 
-  /// Episode ids available offline. Filled from the podcast player's download
-  /// action; the library's DOWNLOADS entry reads the count from here.
-  Set<String> get downloadedEpisodes => Set.unmodifiable(_downloadedEpisodes);
-
-  bool isDownloaded(String episodeId) => _downloadedEpisodes.contains(episodeId);
-
-  void toggleDownloaded(String episodeId) {
-    if (!_downloadedEpisodes.remove(episodeId)) {
-      _downloadedEpisodes.add(episodeId);
+  Future<void> _persistSavedEpisodes() async {
+    try {
+      await _libraryStore.saveSavedEpisodes(_savedEpisodes.toList());
+    } on Exception {
+      // Best-effort.
     }
-    notifyListeners();
   }
+
+  /// Episode ids available offline. Derived from the download manager's
+  /// completed set; the library's DOWNLOADS entry reads the count from here.
+  Set<String> get downloadedEpisodes =>
+      Set.unmodifiable(downloads.completedIds);
+
+  bool isDownloaded(String episodeId) => downloads.isDownloaded(episodeId);
+
+  /// Toggles offline availability for [episode]: starts a download when absent,
+  /// removes the downloaded file when present.
+  void toggleDownload(PodcastEpisode episode) {
+    if (downloads.isDownloaded(episode.id)) {
+      unawaited(downloads.remove(episode.id));
+    } else {
+      unawaited(downloads.enqueue(episode));
+    }
+  }
+
+  // --- Download passthroughs -----------------------------------------------
+
+  void requestDownload(PodcastEpisode episode) =>
+      unawaited(downloads.enqueue(episode));
+
+  void removeDownload(String episodeId) =>
+      unawaited(downloads.remove(episodeId));
+
+  void pauseDownload(String episodeId) => downloads.pause(episodeId);
+
+  void resumeDownload(String episodeId) => downloads.resume(episodeId);
+
+  void cancelDownload(String episodeId) =>
+      unawaited(downloads.cancel(episodeId));
+
+  void retryDownload(String episodeId) =>
+      unawaited(downloads.retry(episodeId));
+
+  DownloadItem? downloadFor(String episodeId) => downloads.itemFor(episodeId);
 
   /// Episodes discovered by feed refresh that the listener has not opened
   /// yet. Deliberately independent of saved/downloaded state and of playback
@@ -257,6 +386,88 @@ class PlaybackController extends ChangeNotifier {
 
   Duration get podcastPosition => _currentEpisode?.position ?? Duration.zero;
   Duration get podcastDuration => _currentEpisode?.duration ?? Duration.zero;
+
+  // --- Playback progress (Continue Listening) ------------------------------
+
+  /// The most recently restored/observed [PlaybackProgress] record for
+  /// [episodeId], or null when none exists yet.
+  PlaybackProgress? progressFor(String episodeId) {
+    final PlaybackProgress? p = _progress[episodeId];
+    if (p == null || !p.inProgress) return null;
+    return p;
+  }
+
+  /// Resolves the [PlaybackProgress] the library should present for
+  /// [episode]: a persisted/observed record when one exists, otherwise a
+  /// catalogue-synthesised record when the episode itself carries a baked
+  /// position (mock fixtures keep working without ever having been played).
+  PlaybackProgress? progressForEpisode(PodcastEpisode episode) {
+    final PlaybackProgress? persisted = _progress[episode.id];
+    if (persisted != null) {
+      return persisted.inProgress ? persisted : null;
+    }
+    return episode.position > Duration.zero &&
+            episode.position < episode.duration
+        ? PlaybackProgress(
+            episodeId: episode.id,
+            position: episode.position,
+            duration: episode.duration,
+            // Catalogue-synthesised: an old sentinel so genuinely played
+            // episodes always rank ahead in Continue Listening.
+            updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          )
+        : null;
+  }
+
+  /// Unfinished persisted progress sorted most-recently-updated first, capped
+  /// to [maxContinueListeningItems]. Drives the library's Continue Listening.
+  List<PlaybackProgress> get continueListening {
+    final List<PlaybackProgress> list = _progress.values
+        .where((p) => p.inProgress)
+        .toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return list.take(maxContinueListeningItems).toList();
+  }
+
+  /// Keeps the in-memory record for the current episode current. Cheap and
+  /// runs on every tick so Continue Listening reflects the live position; the
+  /// store write itself is throttled separately.
+  void _updateProgressRecord({bool? completed}) {
+    final PodcastEpisode? episode = _currentEpisode;
+    if (episode == null) return;
+    final PlaybackProgress? prior = _progress[episode.id];
+    _progress[episode.id] = PlaybackProgress(
+      episodeId: episode.id,
+      position: episode.position,
+      duration: episode.duration,
+      updatedAt: _now(),
+      completed: completed ?? prior?.completed ?? false,
+    );
+  }
+
+  /// Writes the in-memory progress map to the backing store (best-effort).
+  void _persistProgressNow() {
+    final Map<String, PlaybackProgress> snapshot = Map<String, PlaybackProgress>.of(_progress);
+    unawaited(_progressStore.save(snapshot));
+  }
+
+  void _startProgressPersistTimer() {
+    if (_progressPersistTimer != null) return;
+    final Duration interval = progressPersistInterval;
+    if (interval <= Duration.zero) return;
+    _progressPersistTimer = Timer.periodic(interval, (_) {
+      if (_audioType == AudioType.podcast && _status == PlayerStatus.playing) {
+        _updateProgressRecord();
+        _persistProgressNow();
+      }
+    });
+  }
+
+  void _stopProgressPersistTimer() {
+    _progressPersistTimer?.cancel();
+    _progressPersistTimer = null;
+  }
+
 
   /// A radio broadcast owns the playback surface (even while paused).
   bool get radioActive => _audioType == AudioType.radio && _currentStation != null;
@@ -298,7 +509,8 @@ class PlaybackController extends ChangeNotifier {
   }
 
   /// Engine reports: connection progress, starvation, death, or now-playing
-  /// text. Only radio listens to these — podcast position is controller-driven.
+  /// text. Radio drives its full state machine here; podcast only tracks
+  /// start failures (for the offline hint) since position is controller-driven.
   void _onEngineEvent(AudioEngineEvent event) {
     if (event.metadata != null && event.metadata!.isNotEmpty) {
       _radioMetadata = event.metadata;
@@ -308,19 +520,42 @@ class PlaybackController extends ChangeNotifier {
       case EngineStreamState.idle:
         break; // stop() already handled at the controller level
       case EngineStreamState.connecting:
-        _applyRadioState(RadioConnectionState.connecting);
+        if (_audioType == AudioType.radio) {
+          _applyRadioState(RadioConnectionState.connecting);
+        }
         break;
       case EngineStreamState.buffering:
-        _applyRadioState(RadioConnectionState.buffering);
+        if (_audioType == AudioType.radio) {
+          _applyRadioState(RadioConnectionState.buffering);
+        }
         break;
       case EngineStreamState.playing:
-        _applyRadioState(RadioConnectionState.playing);
+        if (_audioType == AudioType.radio) {
+          _applyRadioState(RadioConnectionState.playing);
+        }
+        if (_audioType == AudioType.podcast && _podcastStartFailed) {
+          _podcastStartFailed = false;
+          notifyListeners();
+        }
         break;
       case EngineStreamState.error:
-        _handleRadioError();
+        if (_audioType == AudioType.radio) {
+          _handleRadioError();
+        } else if (_audioType == AudioType.podcast) {
+          _podcastStartFailed = true;
+          notifyListeners();
+        }
         break;
     }
   }
+
+  /// Whether the current podcast failed to start and is not downloaded — the
+  /// player surfaces the offline hint in that case.
+  bool get podcastStartFailed =>
+      _audioType == AudioType.podcast &&
+      _podcastStartFailed &&
+      _currentEpisode != null &&
+      !isDownloaded(_currentEpisode!.id);
 
   void _applyRadioState(RadioConnectionState state) {
     if (_audioType != AudioType.radio || _radioState == state) return;
@@ -408,15 +643,39 @@ class PlaybackController extends ChangeNotifier {
 
   void playPodcastEpisode(PodcastEpisode episode) {
     _audioType = AudioType.podcast;
-    _currentEpisode = episode;
+    _currentEpisode = _restoredEpisode(episode);
     _currentStation = null;
     _status = PlayerStatus.playing;
     _unseenEpisodes.remove(episode.id);
+    _podcastStartFailed = false;
     _resetRadioSurface();
     _recordRecentEpisode(episode);
     _syncTicker();
-    unawaited(_engine.start(episode.audioUrl ?? ''));
+    _startProgressPersistTimer();
+    final String source = downloads.localPathFor(episode.id) ??
+        episode.audioUrl ??
+        '';
+    unawaited(_engine.start(source));
     notifyListeners();
+  }
+
+  /// Returns [episode] seeded with its restored playback position.
+  ///
+  /// Unfinished episodes resume from where the listener left off. A completed
+  /// episode replays from the start (a fresh listen) — it no longer behaves
+  /// like an unfinished Continue Listening item.
+  PodcastEpisode _restoredEpisode(PodcastEpisode episode) {
+    final PlaybackProgress? saved = _progress[episode.id];
+    if (saved == null || saved.completed) {
+      return episode;
+    }
+    final Duration duration = episode.duration > Duration.zero
+        ? episode.duration
+        : saved.duration;
+    final Duration clamped = saved.position < Duration.zero
+        ? Duration.zero
+        : (saved.position > duration ? duration : saved.position);
+    return episode.copyWith(position: clamped);
   }
 
   void toggle() {
@@ -425,6 +684,12 @@ class PlaybackController extends ChangeNotifier {
     _status = wasPlaying ? PlayerStatus.paused : PlayerStatus.playing;
     unawaited(wasPlaying ? _engine.pause() : _engine.resume());
     _syncTicker();
+    if (wasPlaying && _audioType == AudioType.podcast) {
+      _updateProgressRecord();
+      _persistProgressNow();
+    } else if (!wasPlaying && _audioType == AudioType.podcast) {
+      _startProgressPersistTimer();
+    }
     notifyListeners();
   }
 
@@ -435,6 +700,8 @@ class PlaybackController extends ChangeNotifier {
         ? Duration.zero
         : (position > episode.duration ? episode.duration : position);
     _currentEpisode = episode.copyWith(position: clamped);
+    _updateProgressRecord();
+    _persistProgressNow();
     notifyListeners();
   }
 
@@ -446,6 +713,8 @@ class PlaybackController extends ChangeNotifier {
     _resetRadioSurface();
     unawaited(_engine.stop());
     _syncTicker();
+    _stopProgressPersistTimer();
+    _persistProgressNow();
     notifyListeners();
   }
 
@@ -541,6 +810,7 @@ class PlaybackController extends ChangeNotifier {
     }
     _ticker?.cancel();
     _ticker = null;
+    _stopProgressPersistTimer();
   }
 
   void _advance() {
@@ -557,9 +827,23 @@ class PlaybackController extends ChangeNotifier {
       _currentEpisode = episode.copyWith(position: episode.duration);
       _status = PlayerStatus.paused;
       _syncTicker();
+      _updateProgressRecord(completed: true);
+      _persistProgressNow();
     } else {
       _currentEpisode = episode.copyWith(position: next);
+      _updateProgressRecord();
     }
+    notifyListeners();
+  }
+
+  /// Restarts playback of the current episode from the beginning, clearing its
+  /// saved progress so it no longer appears in Continue Listening.
+  void restartEpisode() {
+    final PodcastEpisode? episode = _currentEpisode;
+    if (episode == null || _audioType != AudioType.podcast) return;
+    _currentEpisode = episode.copyWith(position: Duration.zero);
+    _updateProgressRecord();
+    _persistProgressNow();
     notifyListeners();
   }
 
@@ -568,7 +852,10 @@ class PlaybackController extends ChangeNotifier {
     _ticker?.cancel();
     _sleepTicker?.cancel();
     _radioRetryTimer?.cancel();
+    _stopProgressPersistTimer();
+    _persistProgressNow();
     _engineSub?.cancel();
+    downloads.removeListener(notifyListeners);
     unawaited(_engine.disposeEngine());
     super.dispose();
   }

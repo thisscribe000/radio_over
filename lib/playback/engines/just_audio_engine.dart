@@ -87,9 +87,14 @@ class JustAudioEngine implements StatefulAudioEngine {
     _lastMetadata = null;
     _add(const AudioEngineEvent(state: EngineStreamState.connecting));
     try {
-      await _player.setUrl(url, headers: const <String, String>{
-        'Icy-MetaData': '1',
-      });
+      if (!url.contains('://')) {
+        // Local file (downloaded episode): play from disk, no ICY headers.
+        await _player.setFilePath(url);
+      } else {
+        await _player.setUrl(url, headers: const <String, String>{
+          'Icy-MetaData': '1',
+        });
+      }
       _hasSource = true;
       await _player.play();
     } catch (_) {
