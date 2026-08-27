@@ -146,7 +146,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                     favourite: favourite,
                     onFavourite: () => widget.controller.toggleSavedEpisode(episode.id),
                     downloaded: widget.controller.isDownloaded(episode.id),
-                    onDownload: () => widget.controller.toggleDownloaded(episode.id),
+                    onDownload: () => widget.controller.toggleDownload(episode),
                     onShare: () => _shareEpisode(episode),
                     sleepActive: widget.controller.sleepActive,
                     onSleep: () => _openSleepTimer(context),
@@ -155,6 +155,19 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                     const SizedBox(height: 16),
                     SleepTimerIndicator(controller: widget.controller),
                   ],
+                  if (widget.controller.podcastStartFailed)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        key: const ValueKey('offline-hint'),
+                        "You're offline · Download this episode to listen without internet.",
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.podcastAccent,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   NowPlayingInfo(title: episode.title, subtitle: episode.podcastName),
                 ],
               ),
@@ -490,6 +503,21 @@ class _SecondaryActions extends StatefulWidget {
 class _SecondaryActionsState extends State<_SecondaryActions> {
   static const List<double> _speeds = [1, 1.5, 2];
   int _speedIndex = 0;
+  bool _optimisticDownloaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _optimisticDownloaded = widget.downloaded;
+  }
+
+  @override
+  void didUpdateWidget(covariant _SecondaryActions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.downloaded != widget.downloaded) {
+      _optimisticDownloaded = widget.downloaded;
+    }
+  }
 
   void _cycleSpeed() {
     setState(() => _speedIndex = (_speedIndex + 1) % _speeds.length);
@@ -497,6 +525,7 @@ class _SecondaryActionsState extends State<_SecondaryActions> {
 
   @override
   Widget build(BuildContext context) {
+    final bool downloaded = widget.downloaded || _optimisticDownloaded;
     return Container(
       decoration: const BoxDecoration(
         border: Border(
@@ -519,12 +548,15 @@ class _SecondaryActionsState extends State<_SecondaryActions> {
           ),
           PlayerIconButton(
             key: const ValueKey('podcast-download'),
-            tooltip: widget.downloaded ? 'Downloaded' : 'Download',
-            onPressed: widget.onDownload,
+            tooltip: downloaded ? 'Downloaded' : 'Download',
+            onPressed: () {
+              setState(() => _optimisticDownloaded = !downloaded);
+              widget.onDownload();
+            },
             icon: Icon(
-              widget.downloaded ? Icons.download_done : Icons.download_outlined,
+              downloaded ? Icons.download_done : Icons.download_outlined,
               size: 22,
-              color: widget.downloaded ? AppColors.podcastAccent : AppColors.ink,
+              color: downloaded ? AppColors.podcastAccent : AppColors.ink,
             ),
           ),
           PlayerIconButton(
