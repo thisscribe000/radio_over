@@ -7,7 +7,7 @@ import '../screens/library_screen.dart';
 import '../screens/podcasts_screen.dart';
 import '../screens/radio_screen.dart';
 import '../search/recent_searches.dart';
-import '../theme.dart';
+import '../widgets/pill_tab_bar.dart';
 import '../widgets/podcast_mini_player.dart';
 
 /// Top-level navigation shell.
@@ -109,9 +109,14 @@ class _AppShellState extends State<AppShell> {
               ),
             ),
           ),
-          SafeArea(
-            top: false,
-            child: _TabBar(index: _index, onChanged: (i) => setState(() => _index = i)),
+          PillTabBar(
+            tabs: const [
+              PillTabDestination('RADIO', Icons.radio),
+              PillTabDestination('PODCASTS', Icons.podcasts),
+              PillTabDestination('LIBRARY', Icons.library_music_outlined),
+            ],
+            selectedIndex: _index,
+            onChanged: (i) => setState(() => _index = i),
           ),
         ],
       ),
@@ -146,63 +151,6 @@ class _AppShellState extends State<AppShell> {
           end: Offset.zero,
         ).animate(animation),
         child: child,
-      ),
-    );
-  }
-}
-
-class _TabBar extends StatelessWidget {
-  const _TabBar({required this.index, required this.onChanged});
-
-  final int index;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(color: AppColors.hairline),
-        ),
-      ),
-      child: Row(
-        children: [
-          _TabItem(label: 'RADIO', selected: index == 0, onTap: () => onChanged(0)),
-          _TabItem(label: 'PODCASTS', selected: index == 1, onTap: () => onChanged(1)),
-          _TabItem(label: 'LIBRARY', selected: index == 2, onTap: () => onChanged(2)),
-        ],
-      ),
-    );
-  }
-}
-
-class _TabItem extends StatelessWidget {
-  const _TabItem({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        key: ValueKey('tab-$label'),
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Center(
-            child: Text(
-              label,
-              style: selected ? AppTextStyles.navLabel : AppTextStyles.sectionLabel,
-            ),
-          ),
-        ),
       ),
     );
   }

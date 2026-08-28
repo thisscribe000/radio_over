@@ -236,10 +236,10 @@ void main() {
         // Both listens happened moments ago, so both labels read "TODAY · HH:MM".
         expect(libraryText(formatListenedAt(episodeAt)), findsWidgets);
 
-        await revealInLibrary(tester, find.byKey(const ValueKey('library-recent-station-BBC World Service')));
-        expect(find.byKey(const ValueKey('library-recent-station-BBC World Service')), findsOneWidget);
+        await revealInLibrary(tester, find.byKey(const ValueKey('library-recent-station-Loveworld Radio')));
+        expect(find.byKey(const ValueKey('library-recent-station-Loveworld Radio')), findsOneWidget);
         expect(libraryText(formatListenedAt(stationAt)), findsWidgets);
-        expect(libraryText('BBC World Service'), findsOneWidget);
+        expect(libraryText('Loveworld Radio'), findsOneWidget);
       });
     });
 
@@ -283,7 +283,7 @@ void main() {
         expect(strip, findsOneWidget);
         // The strip renders the station name in its uppercase player styling.
         expect(
-          find.descendant(of: strip, matching: find.text('BBC WORLD SERVICE')),
+          find.descendant(of: strip, matching: find.text('LOVEWORLD RADIO')),
           findsOneWidget,
         );
       });

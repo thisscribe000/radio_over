@@ -34,13 +34,36 @@ class AppContent extends ChangeNotifier {
     required this.podcastFeeds,
     List<RadioStation>? seedStations,
     List<PodcastSeries>? seedShows,
+    this.pinnedStation,
     this.isLive = false,
     this.savedShowsProvider,
     this.onNewEpisodes,
     DateTime Function()? clock,
   })  : _now = clock ?? DateTime.now,
-        _stations = List.of(seedStations ?? mockStations),
+        _stations = _applyPinned(List.of(seedStations ?? mockStations), pinnedStation),
         _shows = List.of(seedShows ?? mockPodcasts);
+
+  /// A station always kept at the front of the radio catalogue, regardless of
+  /// what a live load returns or the seed ordering. When set, it is the first
+  /// station (and therefore the featured/LIVE NOW station) and is never
+  /// duplicated by a live result carrying the same [RadioStation.stationId].
+  final RadioStation? pinnedStation;
+
+  /// Returns [stations] with [pinned] forced to the front: the pinned instance
+  /// is placed at index 0 and any other station sharing its [stationId] is
+  /// dropped (deduped by stable station identity only — no fuzzy name math).
+  static List<RadioStation> _applyPinned(
+    List<RadioStation> stations,
+    RadioStation? pinned,
+  ) {
+    if (pinned == null) return stations;
+    final String id = pinned.stationId;
+    return [
+      pinned,
+      for (final RadioStation s in stations)
+        if (s.stationId != id) s,
+    ];
+  }
 
   /// Fully-offline scope: every repository serves the curated mock catalogue.
   /// Used by development and widget tests so behaviour is deterministic.
@@ -150,7 +173,7 @@ class AppContent extends ChangeNotifier {
     try {
       final List<RadioStation> hits = await radio.popular(limit: limit);
       if (hits.isNotEmpty) {
-        _stations = List.of(hits);
+        _stations = _applyPinned(List.of(hits), pinnedStation);
         _announce();
       }
     } on Exception {

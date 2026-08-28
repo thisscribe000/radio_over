@@ -55,11 +55,17 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
     final PlaybackController controller = widget.controller;
     switch (controller.radioState) {
       case RadioConnectionState.connecting:
-        return const Text('CONNECTING…', key: ValueKey('stream-status'),
-            style: AppTextStyles.nowPlayingLabel);
+        return const Text(
+          'CONNECTING…',
+          key: ValueKey('stream-status'),
+          style: AppTextStyles.nowPlayingLabel,
+        );
       case RadioConnectionState.buffering:
-        return const Text('BUFFERING…', key: ValueKey('stream-status'),
-            style: AppTextStyles.nowPlayingLabel);
+        return const Text(
+          'BUFFERING…',
+          key: ValueKey('stream-status'),
+          style: AppTextStyles.nowPlayingLabel,
+        );
       case RadioConnectionState.error:
         return GestureDetector(
           key: const ValueKey('stream-retry'),
@@ -67,9 +73,11 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
           onTap: controller.retryRadio,
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Text("UNABLE TO CONNECT · TRY AGAIN",
-                key: ValueKey('stream-status'),
-                style: AppTextStyles.nowPlayingLabel),
+            child: Text(
+              "UNABLE TO CONNECT · TRY AGAIN",
+              key: ValueKey('stream-status'),
+              style: AppTextStyles.nowPlayingLabel,
+            ),
           ),
         );
       case RadioConnectionState.idle:
@@ -81,21 +89,26 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
   void _switchStation(int delta) {
     final RadioStation? station = widget.controller.currentStation;
     if (station == null || _content.stations.isEmpty) return;
-    final int index =
-        _content.stations.indexWhere((s) => s.stationId == station.stationId);
+    final int index = _content.stations.indexWhere(
+      (s) => s.stationId == station.stationId,
+    );
     if (index < 0) return;
     final List<RadioStation> stations = _content.stations;
-    widget.controller
-        .playRadioStation(stations[(index + delta) % stations.length]);
+    widget.controller.playRadioStation(
+      stations[(index + delta) % stations.length],
+    );
   }
 
   /// Unavoidably a platform action: shares the current listen via the native
   /// share sheet. Guarded so the app stays quiet when sharing is unavailable
   /// (for example in the headless widget-test environment).
   Future<void> _share(RadioStation station) async {
-    final String text = 'Listening live to ${station.name} — ${station.program}.';
+    final String text =
+        'Listening live to ${station.name} — ${station.program}.';
     try {
-      await SharePlus.instance.share(ShareParams(text: text, subject: 'Radio — ${station.name}'));
+      await SharePlus.instance.share(
+        ShareParams(text: text, subject: 'Radio — ${station.name}'),
+      );
     } catch (_) {
       // Sharing unavailable here; nothing to do.
     }
@@ -127,22 +140,24 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
         }
         final RadioStation station = widget.controller.currentStation!;
         final bool playing = widget.controller.isPlaying;
-        final bool favourite = widget.controller.isFavouriteStation(station.stationId);
+        final bool favourite = widget.controller.isFavouriteStation(
+          station.stationId,
+        );
         return Scaffold(
           body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
-                  const PlayerTopBar(label: 'RADIO', backKey: ValueKey('player-back')),
+                  const PlayerTopBar(
+                    label: 'RADIO',
+                    backKey: ValueKey('player-back'),
+                  ),
                   Expanded(
                     child: Column(
                       children: [
                         const Spacer(flex: 2),
-                        LiveBadge(
-                          animate:
-                              playing && !_isBufferingLike,
-                        ),
+                        LiveBadge(animate: playing && !_isBufferingLike),
                         const SizedBox(height: 16),
                         Text(
                           station.name.toUpperCase(),
@@ -175,17 +190,23 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
                   ),
                   _RadioControls(
                     playing: playing,
-                    favourite: favourite,
-                    sleepActive: widget.controller.sleepActive,
                     onPlayPause: () =>
-                        widget.controller.radioState == RadioConnectionState.error
-                            ? widget.controller.retryRadio()
-                            : widget.controller.toggle(),
+                        widget.controller.radioState ==
+                            RadioConnectionState.error
+                        ? widget.controller.retryRadio()
+                        : widget.controller.toggle(),
                     onPrevious: () => _switchStation(-1),
                     onNext: () => _switchStation(1),
-                    onFavourite: () => widget.controller
-                .toggleFavouriteStation(station.stationId, details: station),
+                  ),
+                  const SizedBox(height: 18),
+                  _RadioSecondaryActions(
+                    favourite: favourite,
+                    onFavourite: () => widget.controller.toggleFavouriteStation(
+                      station.stationId,
+                      details: station,
+                    ),
                     onShare: () => _share(station),
+                    sleepActive: widget.controller.sleepActive,
                     onSleep: () => _openSleepTimer(context),
                   ),
                   if (widget.controller.sleepActive) ...[
@@ -193,7 +214,10 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
                     SleepTimerIndicator(controller: widget.controller),
                   ],
                   const SizedBox(height: 28),
-                  NowPlayingInfo(title: station.program, subtitle: station.name),
+                  NowPlayingInfo(
+                    title: station.program,
+                    subtitle: station.name,
+                  ),
                 ],
               ),
             ),
@@ -207,45 +231,26 @@ class _RadioPlayerScreenState extends State<RadioPlayerScreen> {
 class _RadioControls extends StatelessWidget {
   const _RadioControls({
     required this.playing,
-    required this.favourite,
-    required this.sleepActive,
     required this.onPlayPause,
     required this.onPrevious,
     required this.onNext,
-    required this.onFavourite,
-    required this.onShare,
-    required this.onSleep,
   });
 
   final bool playing;
-  final bool favourite;
-  final bool sleepActive;
   final VoidCallback onPlayPause;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
-  final VoidCallback onFavourite;
-  final VoidCallback onShare;
-  final VoidCallback onSleep;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              PlayerIconButton(
-                key: const ValueKey('player-favourite'),
-                tooltip: 'Toggle favourite',
-                onPressed: onFavourite,
-                icon: Icon(
-                  favourite ? Icons.favorite : Icons.favorite_border,
-                  size: 22,
-                  color: favourite ? AppColors.accent : AppColors.ink,
-                ),
-              ),
-              const SizedBox(width: 20),
               PlayerIconButton(
                 key: const ValueKey('player-previous'),
                 tooltip: 'Previous station',
@@ -258,15 +263,13 @@ class _RadioControls extends StatelessWidget {
               ),
             ],
           ),
-        ),
-        PlayPauseButton(
-          key: const ValueKey('player-play-pause'),
-          playing: playing,
-          onPressed: onPlayPause,
-        ),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
+          PlayPauseButton(
+            key: const ValueKey('player-play-pause'),
+            playing: playing,
+            onPressed: onPlayPause,
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               PlayerIconButton(
                 key: const ValueKey('player-next'),
@@ -278,32 +281,67 @@ class _RadioControls extends StatelessWidget {
                   color: AppColors.ink,
                 ),
               ),
-              const SizedBox(width: 20),
-              PlayerIconButton(
-                key: const ValueKey('player-share'),
-                tooltip: 'Share',
-                onPressed: onShare,
-                icon: const Icon(
-                  Icons.ios_share,
-                  size: 22,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(width: 20),
-              PlayerIconButton(
-                key: const ValueKey('player-sleep'),
-                tooltip: 'Sleep timer',
-                onPressed: onSleep,
-                icon: Icon(
-                  Icons.bedtime_outlined,
-                  size: 22,
-                  color: sleepActive ? AppColors.accent : AppColors.ink,
-                ),
-              ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RadioSecondaryActions extends StatelessWidget {
+  const _RadioSecondaryActions({
+    required this.favourite,
+    required this.onFavourite,
+    required this.onShare,
+    required this.sleepActive,
+    required this.onSleep,
+  });
+
+  final bool favourite;
+  final VoidCallback onFavourite;
+  final VoidCallback onShare;
+  final bool sleepActive;
+  final VoidCallback onSleep;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.hairline)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          PlayerIconButton(
+            key: const ValueKey('player-favourite'),
+            tooltip: 'Toggle favourite',
+            onPressed: onFavourite,
+            icon: Icon(
+              favourite ? Icons.favorite : Icons.favorite_border,
+              size: 22,
+              color: favourite ? AppColors.accent : AppColors.ink,
+            ),
+          ),
+          PlayerIconButton(
+            key: const ValueKey('player-share'),
+            tooltip: 'Share',
+            onPressed: onShare,
+            icon: const Icon(Icons.ios_share, size: 22, color: AppColors.ink),
+          ),
+          PlayerIconButton(
+            key: const ValueKey('player-sleep'),
+            tooltip: 'Sleep timer',
+            onPressed: onSleep,
+            icon: Icon(
+              Icons.bedtime_outlined,
+              size: 22,
+              color: sleepActive ? AppColors.accent : AppColors.ink,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

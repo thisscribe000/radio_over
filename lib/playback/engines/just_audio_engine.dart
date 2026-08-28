@@ -28,6 +28,8 @@ class JustAudioEngine implements StatefulAudioEngine {
 
   String? _lastMetadata;
   EngineStreamState _lastState = EngineStreamState.idle;
+  int _sourceGeneration = 0;
+  Future<void> _sourceOperation = Future<void>.value();
 
   JustAudioEngine() {
     _stateSub = _player.playerStateStream.listen(_onPlayerState);
@@ -40,9 +42,9 @@ class JustAudioEngine implements StatefulAudioEngine {
     });
     // Mid-playback failures (network loss, dead stream) that do not throw
     // through start().
-    _errorSub = _player.errorStream.listen((_) => _add(const AudioEngineEvent(
-          state: EngineStreamState.error,
-        )));
+    _errorSub = _player.errorStream.listen(
+      (_) => _add(const AudioEngineEvent(state: EngineStreamState.error)),
+    );
   }
 
   @override
@@ -79,7 +81,20 @@ class JustAudioEngine implements StatefulAudioEngine {
   }
 
   @override
-  Future<void> start(String url) async {
+  Future<void> start(String url) {
+    final int generation = ++_sourceGeneration;
+    // Stop immediately so a failed or empty replacement can never leave the
+    // previous source audible while the new source is being resolved.
+    _hasSource = false;
+    unawaited(_player.stop().catchError((_) {}));
+    _sourceOperation = _sourceOperation.then(
+      (_) => _startSource(url, generation),
+    );
+    return _sourceOperation;
+  }
+
+  Future<void> _startSource(String url, int generation) async {
+    if (generation != _sourceGeneration) return;
     if (url.isEmpty) {
       _add(const AudioEngineEvent(state: EngineStreamState.error));
       return;
@@ -91,10 +106,12 @@ class JustAudioEngine implements StatefulAudioEngine {
         // Local file (downloaded episode): play from disk, no ICY headers.
         await _player.setFilePath(url);
       } else {
-        await _player.setUrl(url, headers: const <String, String>{
-          'Icy-MetaData': '1',
-        });
+        await _player.setUrl(
+          url,
+          headers: const <String, String>{'Icy-MetaData': '1'},
+        );
       }
+      if (generation != _sourceGeneration) return;
       _hasSource = true;
       await _player.play();
     } catch (_) {
@@ -106,32 +123,39 @@ class JustAudioEngine implements StatefulAudioEngine {
   }
 
   @override
-  Future<void> pause() async {
+  Future<void> pause() {
     try {
-      await _player.pause();
-    } catch (_) {}
+      return _player.pause();
+    } catch (_) {
+      return Future<void>.value();
+    }
   }
 
   @override
-  Future<void> resume() async {
+  Future<void> resume() {
+    if (!_hasSource) return Future<void>.value();
     try {
-      if (_hasSource) {
-        await _player.play();
-      }
-    } catch (_) {}
+      return _player.play();
+    } catch (_) {
+      return Future<void>.value();
+    }
   }
 
   @override
-  Future<void> stop() async {
+  Future<void> stop() {
+    _sourceGeneration++;
     _hasSource = false;
     _lastMetadata = null;
     try {
-      await _player.stop();
-    } catch (_) {}
+      return _player.stop();
+    } catch (_) {
+      return Future<void>.value();
+    }
   }
 
   @override
   Future<void> disposeEngine() async {
+    await _sourceOperation;
     await _stateSub?.cancel();
     await _icySub?.cancel();
     await _errorSub?.cancel();

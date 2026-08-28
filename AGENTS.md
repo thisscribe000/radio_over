@@ -167,3 +167,22 @@ If you'd like, specify which of the immediate next steps to perform and I'll car
   - Tests: `test/search/search_engine_test.dart` (live-path real models for podcasts/stations, empty-query empty set, network-error fallback, manual-RSS feedUrl preserved), `test/search/search_behavior_test.dart` (widget: empty query fires no request, debounce collapses a keystroke burst, late request cannot overwrite newer results), `test/search/recent_searches_test.dart` (persistence restore/save via shared store, bounded, mutate+notify).
   - Files: `lib/search/recent_search_store.dart` (new), `lib/search/recent_searches.dart`, `lib/screens/search_screen.dart`, `lib/screens/podcasts_screen.dart`, `lib/navigation/app_shell.dart`, `lib/main.dart`, `AGENTS.md`, `test/search/*`.
   - Commit: `HEAD` once pushed.
+
+  ## Latest worklog (2026-08-28, playback/source and Radio player follow-up)
+
+  - Fixed the remaining real-device source race in `lib/playback/engines/just_audio_engine.dart` without adding another player or service:
+    - `JustAudioEngine` still owns one `just_audio` `AudioPlayer`.
+    - A new source immediately stops the current physical source, including when the replacement URL is empty.
+    - Source-generation checks prevent stale radio loads from taking ownership after a podcast selection.
+    - Pause/resume/stop are not queued behind a potentially long-running radio `setUrl()` operation, so the visible control acts on the actual player promptly.
+  - Radio full-screen controls now follow the podcast player hierarchy in `lib/screens/radio_player_screen.dart`:
+    - Primary row: previous, play/pause, next.
+    - Secondary row: favourite, share, sleep timer.
+    - The secondary controls avoid the crescent/sleep icon right-edge overflow on narrow phone widths.
+  - Radio station rows constrain long category labels with `Flexible` + one-line ellipsis in `lib/screens/radio_screen.dart`.
+  - Focused regressions:
+    - `test/overflow_probe_test.dart` checks adversarial station data at 390px and 320px.
+    - `test/radio_player_test.dart` checks the full player at 320px and play/pause behavior.
+    - `test/playback/playback_source_ownership_test.dart` checks the single active media source, media-session identity, source switching, and pause/resume delegation.
+  - `flutter analyze` is clean and the full Flutter suite passes (**263 tests** at the time of this worklog).
+  - Real podcast audio population: live Podcast Index search requires `PODCAST_INDEX_KEY` and `PODCAST_INDEX_SECRET`; opening a result resolves its RSS feed, and each RSS `<enclosure url="...">` supplies `PodcastEpisode.audioUrl`. Mock episodes without an enclosure/audio URL remain display fixtures and cannot stream until a real feed is loaded.

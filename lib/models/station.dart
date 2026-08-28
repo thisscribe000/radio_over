@@ -159,12 +159,63 @@ const List<String> radioCategories = [
   'Entertainment',
 ];
 
+/// Loveworld Radio — pinned at the top of the radio catalogue and featured in
+/// LIVE NOW. Kept as its own named constant so both the mock catalogue and the
+/// live scope can reference the same persistent station (it is re-inserted to
+/// the front of the catalogue whenever a live load replaces it).
+const RadioStation loveworldRadioStation = RadioStation(
+  id: 'loveworld-radio',
+  name: 'Loveworld Radio',
+  category: 'Gospel',
+  program: 'Praise and Worship',
+  country: 'Nigeria',
+  city: 'Lagos',
+  language: 'English',
+  website: 'loveworldradio.org',
+  description:
+      'Loveworld Radio — uplifting praise, worship and the word, broadcast from the Loveworld Christian network.',
+  streamUrl: 'https://radio.superfm963.com/proxy/lwradio/stream',
+  streamType: 'audio/mpeg',
+  codec: 'MP3',
+  tags: ['gospel', 'worship', 'christian'],
+  schedule: [
+    RadioProgramme(
+      id: 'loveworld-praise-worship',
+      stationId: 'loveworld-radio',
+      title: 'Praise and Worship',
+      description: 'A session of praise, worship and the word.',
+      start: '06:00',
+      end: '09:00',
+      day: 'TODAY',
+    ),
+    RadioProgramme(
+      id: 'loveworld-word-session',
+      stationId: 'loveworld-radio',
+      title: 'The Word Session',
+      description: 'Biblical teaching and devotion.',
+      start: '09:00',
+      end: '12:00',
+      day: 'TODAY',
+    ),
+    RadioProgramme(
+      id: 'loveworld-evening-worship',
+      stationId: 'loveworld-radio',
+      title: 'Evening Worship',
+      description: 'Winding down the day with worship.',
+      start: '18:00',
+      end: '21:00',
+      day: 'TODAY',
+    ),
+  ],
+);
+
 /// Temporary station data until a real radio API is available.
 ///
 /// The first entries are the demo stations the players were built around;
 /// the rest round out the discovery categories. Kept separate from the UI so
 /// real stations can replace this list later.
 const List<RadioStation> mockStations = [
+  loveworldRadioStation,
   RadioStation(
     id: 'bbc-world-service',
     name: 'BBC World Service',

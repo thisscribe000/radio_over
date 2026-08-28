@@ -136,8 +136,8 @@ void main() {
         await openHistory(tester);
 
         expect(historyText('TODAY'), findsOneWidget);
-        expect(find.byKey(const ValueKey('history-station-bbc-world-service')), findsOneWidget);
-        expect(historyText('BBC World Service'), findsOneWidget);
+        expect(find.byKey(const ValueKey('history-station-loveworld-radio')), findsOneWidget);
+        expect(historyText('Loveworld Radio'), findsOneWidget);
         expect(historyText(formatListenedAt(stationAt)), findsWidgets);
 
         expect(find.byKey(const ValueKey('history-episode-the-daily-gaza')), findsOneWidget);
@@ -158,7 +158,7 @@ void main() {
         await tester.pumpAndSettle();
         await openHistory(tester);
 
-        await tester.tap(find.byKey(const ValueKey('history-station-bbc-world-service')));
+        await tester.tap(find.byKey(const ValueKey('history-station-loveworld-radio')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
@@ -198,7 +198,7 @@ void main() {
           findsOneWidget,
         );
         // The radio row keeps its programme line instead of progress.
-        expect(historyText('World News Today · NEWS'), findsOneWidget);
+        expect(historyText('Praise and Worship · GOSPEL'), findsOneWidget);
       });
     });
 
@@ -224,7 +224,7 @@ void main() {
         expect(find.byKey(const ValueKey('history-episode-the-daily-gaza')), findsNothing);
         expect(controller.listeningHistory.any((h) => h.contentId == 'the-daily-gaza'), isFalse);
         // The station listen remains untouched.
-        expect(find.byKey(const ValueKey('history-station-bbc-world-service')), findsOneWidget);
+        expect(find.byKey(const ValueKey('history-station-loveworld-radio')), findsOneWidget);
       });
     });
 
@@ -270,7 +270,7 @@ void main() {
         );
         expect(strip, findsOneWidget);
         expect(
-          find.descendant(of: strip, matching: find.text('BBC WORLD SERVICE')),
+          find.descendant(of: strip, matching: find.text('LOVEWORLD RADIO')),
           findsOneWidget,
         );
 

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Android network security configuration.
+
+Purpose:
+Radio stations are discovered dynamically through the Radio Browser index.
+Many legitimate stations still expose their stream over plain http rather than
+https. On Android 9+ (API 28+) cleartext HTTP is blocked by default, which can
+cause otherwise-valid stations to fail with UNABLE TO CONNECT.
+
+Because station domains cannot be known in advance (the catalogue is
+discovered at runtime), a per-domain cleartext allow-list is not practical for
+this product. We therefore permit cleartext traffic at the app level.
+
+Security scope:
+* HTTPS remains preferred. This config only permits cleartext; it never
+  downgrades an HTTPS stream, and it does not rewrite http to https or the
+  reverse. Stations flagged HTTPS by the index are streamed over HTTPS.
+* TLS certificate validation is NOT weakened. No trust-anchors override is
+  present, so Android continues using the system CA store and rejects invalid
+  or mis-issued certificates.
+* The app's own API calls (Radio Browser index, Podcast Index, RSS feeds) all
+  use hardcoded HTTPS base URLs and are unaffected.
+
+If a future offline allow-list of known-good station domains ever becomes
+available, this can be narrowed to those specific domains.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

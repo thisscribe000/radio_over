@@ -18,7 +18,10 @@ Future<void> settle(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 400));
 }
 
-Future<void> pumpRadioScreen(WidgetTester tester, PlaybackController controller) async {
+Future<void> pumpRadioScreen(
+  WidgetTester tester,
+  PlaybackController controller,
+) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: buildAppTheme(),
@@ -27,9 +30,11 @@ Future<void> pumpRadioScreen(WidgetTester tester, PlaybackController controller)
   );
 }
 
-Future<void> openPlayer(WidgetTester tester, PlaybackController controller) async {
-  final Finder row =
-      find.byKey(const ValueKey('station-BBC World Service'));
+Future<void> openPlayer(
+  WidgetTester tester,
+  PlaybackController controller,
+) async {
+  final Finder row = find.byKey(const ValueKey('station-Loveworld Radio'));
   await tester.scrollUntilVisible(
     row,
     250,
@@ -39,13 +44,15 @@ Future<void> openPlayer(WidgetTester tester, PlaybackController controller) asyn
   await tester.tap(row);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
-  await tester.tap(find.text('BBC WORLD SERVICE'));
+  await tester.tap(find.text('LOVEWORLD RADIO'));
   await settle(tester);
 }
 
 void main() {
   group('RadioPlayerScreen', () {
-    testWidgets('opens from the radio mini-player with live player structure', (tester) async {
+    testWidgets('opens from the radio mini-player with live player structure', (
+      tester,
+    ) async {
       final PlaybackController controller = PlaybackController();
       await pumpRadioScreen(tester, controller);
 
@@ -57,10 +64,10 @@ void main() {
       expect(find.byType(LiveBadge), findsOneWidget);
       expect(find.text('LIVE'), findsOneWidget);
       expect(find.byType(RadioWaveform), findsOneWidget);
-      expect(find.text('BBC WORLD SERVICE'), findsOneWidget);
-      expect(find.text('World News Today'), findsAtLeastNWidgets(1));
+      expect(find.text('LOVEWORLD RADIO'), findsOneWidget);
+      expect(find.text('Praise and Worship'), findsAtLeastNWidgets(1));
       expect(find.text('NOW PLAYING'), findsOneWidget);
-      expect(find.text('BBC World Service'), findsOneWidget);
+      expect(find.text('Loveworld Radio'), findsOneWidget);
     });
 
     testWidgets('back returns to the radio home screen', (tester) async {
@@ -75,7 +82,9 @@ void main() {
       expect(find.text('LIVE STATIONS'), findsOneWidget);
     });
 
-    testWidgets('big play/pause control toggles playback state and icon', (tester) async {
+    testWidgets('big play/pause control toggles playback state and icon', (
+      tester,
+    ) async {
       final PlaybackController controller = PlaybackController();
       await pumpRadioScreen(tester, controller);
 
@@ -96,7 +105,9 @@ void main() {
       expect(find.byIcon(Icons.pause), findsOneWidget);
     });
 
-    testWidgets('next and previous switch stations through the mock list', (tester) async {
+    testWidgets('next and previous switch stations through the mock list', (
+      tester,
+    ) async {
       final PlaybackController controller = PlaybackController();
       await pumpRadioScreen(tester, controller);
 
@@ -106,7 +117,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('player-next')));
       await settle(tester);
       expect(controller.currentStation, mockStations[1]);
-      expect(find.text('TALK RADIO'), findsOneWidget);
+      expect(find.text('BBC WORLD SERVICE'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('player-previous')));
       await settle(tester);
@@ -114,10 +125,16 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('player-previous')));
       await settle(tester);
-      expect(controller.currentStation, mockStations.last, reason: 'previous wraps to the last station');
+      expect(
+        controller.currentStation,
+        mockStations.last,
+        reason: 'previous wraps to the last station',
+      );
     });
 
-    testWidgets('favourite toggles between selected and unselected', (tester) async {
+    testWidgets('favourite toggles between selected and unselected', (
+      tester,
+    ) async {
       final PlaybackController controller = PlaybackController();
       await pumpRadioScreen(tester, controller);
 
@@ -134,13 +151,32 @@ void main() {
       expect(find.byIcon(Icons.favorite_border), findsOneWidget);
     });
 
-    testWidgets('player ignores radio screen below while keep keyboard-free layout', (tester) async {
+    testWidgets(
+      'player ignores radio screen below while keep keyboard-free layout',
+      (tester) async {
+        final PlaybackController controller = PlaybackController();
+        await pumpRadioScreen(tester, controller);
+
+        await openPlayer(tester, controller);
+
+        expect(
+          find.byType(RadioScreen),
+          findsNothing,
+          reason: 'underlying route is offstage',
+        );
+      },
+    );
+
+    testWidgets('player controls fit narrow phone widths', (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
       final PlaybackController controller = PlaybackController();
       await pumpRadioScreen(tester, controller);
-
       await openPlayer(tester, controller);
 
-      expect(find.byType(RadioScreen), findsNothing, reason: 'underlying route is offstage');
+      expect(tester.takeException(), isNull);
     });
   });
 }

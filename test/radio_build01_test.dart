@@ -74,7 +74,7 @@ void main() {
       expect(find.text('RADIO'), findsOneWidget);
       expect(find.byKey(const ValueKey('radio-greeting')), findsOneWidget);
       expect(find.text('LIVE NOW'), findsOneWidget);
-      expect(find.text('BBC WORLD SERVICE'), findsOneWidget);
+      expect(find.text('LOVEWORLD RADIO'), findsOneWidget);
 
       await reveal(tester, find.text('POPULAR STATIONS'));
       expect(find.text('POPULAR STATIONS'), findsOneWidget);
@@ -130,17 +130,17 @@ void main() {
       final PlaybackController controller = newController();
       await tester.pumpWidget(_app(controller));
 
-      await tapStation(tester, 'BBC World Service');
+      await tapStation(tester, 'Loveworld Radio');
 
       expect(controller.radioActive, isTrue);
       expect(controller.currentStation, mockStations.first);
       expect(controller.isPlaying, isTrue);
-      expect(find.byKey(const ValueKey('active-BBC World Service')), findsOneWidget);
+      expect(find.byKey(const ValueKey('active-Loveworld Radio')), findsOneWidget);
       expect(find.byType(RadioMiniPlayer), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(RadioMiniPlayer),
-          matching: find.text('BBC WORLD SERVICE'),
+          matching: find.text('LOVEWORLD RADIO'),
         ),
         findsOneWidget,
       );
@@ -152,7 +152,7 @@ void main() {
 
       await tapStation(tester, 'Jazz FM');
 
-      expect(controller.currentStation, mockStations[2]);
+      expect(controller.currentStation, mockStations[3]);
       expect(find.byKey(const ValueKey('active-Jazz FM')), findsOneWidget);
       expect(find.byKey(const ValueKey('active-BBC World Service')), findsNothing);
     });

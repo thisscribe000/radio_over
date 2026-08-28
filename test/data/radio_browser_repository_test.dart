@@ -53,6 +53,22 @@ void main() {
       expect(station.logoUrl, 'https://jazz.fm/favicon.png');
     });
 
+    test('leaves an existing https stream URL untouched', () {
+      final RadioStation station = radioBrowserStationFromJson(_stationJson({
+        'is_https': true,
+        'url': 'https://secure.listen.jazz.fm/stream',
+      }));
+      expect(station.streamUrl, 'https://secure.listen.jazz.fm/stream');
+    });
+
+    test('does not rewrite an http stream URL to https when the feed is not https', () {
+      final RadioStation station = radioBrowserStationFromJson(_stationJson({
+        'is_https': false,
+        'url': 'http://plain.listen.jazz.fm/stream',
+      }));
+      expect(station.streamUrl, 'http://plain.listen.jazz.fm/stream');
+    });
+
     test('accepts numeric isOnline flags and empty nowplaying', () {
       final RadioStation station = radioBrowserStationFromJson(_stationJson({
         'isOnline': 1,

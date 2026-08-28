@@ -12,6 +12,7 @@ import 'data/podcasts/podcast_feed_repository.dart';
 import 'data/podcasts/podcast_index_directory_repository.dart';
 import 'data/progress/playback_progress_store.dart';
 import 'data/radio/radio_browser_repository.dart';
+import 'models/station.dart';
 import 'navigation/app_shell.dart';
 import 'playback/engines/just_audio_engine.dart';
 import 'playback/playback_controller.dart';
@@ -57,6 +58,7 @@ class _RadioAppState extends State<RadioApp> {
     podcastDirectory: PodcastIndexDirectoryRepository(),
     podcastFeeds: RssPodcastFeedRepository(),
     isLive: true,
+    pinnedStation: loveworldRadioStation,
     savedShowsProvider: () => _controller.savedShows,
     onNewEpisodes: (show, episodes) =>
         _controller.markEpisodesUnseen([for (final e in episodes) e.id]),

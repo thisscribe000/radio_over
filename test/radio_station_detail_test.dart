@@ -104,7 +104,7 @@ void main() {
     testWidgets('lists the station identity, live now and up next', (tester) async {
       final PlaybackController controller = newController();
       await tester.pumpWidget(
-        detailApp(controller, station: mockStations[1]), // Talk Radio
+        detailApp(controller, station: mockStations[2]), // Talk Radio
       );
 
       expect(find.text('TALK RADIO'), findsOneWidget);
@@ -119,7 +119,7 @@ void main() {
     testWidgets('LISTEN LIVE starts the station and opens the radio player', (tester) async {
       final PlaybackController controller = newController();
       await tester.pumpWidget(
-        detailApp(controller, station: mockStations[0]),
+        detailApp(controller, station: mockStations[1]), // BBC World Service
       );
 
       await tester.tap(find.byKey(const ValueKey('detail-listen')));
@@ -221,7 +221,7 @@ void main() {
     testWidgets('schedule day selector filters the programme rows', (tester) async {
       final PlaybackController controller = newController();
       await tester.pumpWidget(
-        detailApp(controller, station: mockStations[0]),
+        detailApp(controller, station: mockStations[1]), // BBC World Service
       );
 
       await revealInDetail(tester, find.byKey(const ValueKey('schedule-day-FRI')));
@@ -250,7 +250,7 @@ void main() {
     testWidgets('related card opens another station detail page', (tester) async {
       final PlaybackController controller = newController();
       await tester.pumpWidget(
-        detailApp(controller, station: mockStations[0]),
+        detailApp(controller, station: mockStations[1]), // BBC
       );
 
       await revealInDetail(tester, find.byKey(const ValueKey('related-npr')));
