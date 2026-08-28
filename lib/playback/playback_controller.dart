@@ -702,6 +702,7 @@ class PlaybackController extends ChangeNotifier {
     _currentEpisode = episode.copyWith(position: clamped);
     _updateProgressRecord();
     _persistProgressNow();
+    unawaited(_engine.seek(clamped));
     notifyListeners();
   }
 

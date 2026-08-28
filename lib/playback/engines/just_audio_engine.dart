@@ -142,6 +142,15 @@ class JustAudioEngine implements StatefulAudioEngine {
   }
 
   @override
+  Future<void> seek(Duration position) {
+    try {
+      return _player.seek(position);
+    } catch (_) {
+      return Future<void>.value();
+    }
+  }
+
+  @override
   Future<void> stop() {
     _sourceGeneration++;
     _hasSource = false;

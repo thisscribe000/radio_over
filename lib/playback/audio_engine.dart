@@ -16,6 +16,9 @@ abstract class AudioEngine {
   /// Resumes from [pause].
   Future<void> resume();
 
+  /// Moves the current source to [position].
+  Future<void> seek(Duration position);
+
   /// Stops playback entirely and releases the source.
   Future<void> stop();
 
@@ -59,6 +62,7 @@ class SimulatedAudioEngine implements StatefulAudioEngine {
   String? currentUrl;
   bool isPaused = false;
   bool isStopped = true;
+  Duration position = Duration.zero;
 
   /// When non-null, the next [start] fails with this outcome instead of
   /// connecting (consumed once).
@@ -104,6 +108,7 @@ class SimulatedAudioEngine implements StatefulAudioEngine {
       return;
     }
     currentUrl = url;
+    position = Duration.zero;
     isPaused = false;
     isStopped = false;
     _emit(EngineStreamState.playing);
@@ -120,10 +125,16 @@ class SimulatedAudioEngine implements StatefulAudioEngine {
   }
 
   @override
+  Future<void> seek(Duration value) async {
+    position = value < Duration.zero ? Duration.zero : value;
+  }
+
+  @override
   Future<void> stop() async {
     isStopped = true;
     isPaused = false;
     currentUrl = null;
+    position = Duration.zero;
     _emit(EngineStreamState.idle);
   }
 

@@ -136,6 +136,51 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
     );
   }
 
+  Future<void> _addRssFeed() async {
+    final TextEditingController input = TextEditingController();
+    final String? url = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('ADD RSS PODCAST'),
+        content: TextField(
+          controller: input,
+          autofocus: true,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(
+            labelText: 'RSS feed URL',
+            hintText: 'https://example.com/podcast.xml',
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('rss-add-cancel'),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            key: const ValueKey('rss-add-submit'),
+            onPressed: () => Navigator.of(context).pop(input.text),
+            child: const Text('ADD'),
+          ),
+        ],
+      ),
+    );
+    input.dispose();
+    if (!mounted || url == null) return;
+    try {
+      final PodcastSeries show = await _content.addPodcastFeed(url);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${show.name} added')),
+      );
+    } on Exception catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not add podcast: $error')),
+      );
+    }
+  }
+
   /// Episodes that can be picked up where they were left: the episode
   /// currently audibly in progress (live position) plus any episodes with
   /// saved progress in the catalogue. Data-driven so a real backend simply
@@ -183,6 +228,12 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                 ),
               ),
               _SearchEntry(key: const ValueKey('podcast-search'), onTap: _openSearch),
+              IconButton(
+                key: const ValueKey('podcast-add-rss'),
+                tooltip: 'Add RSS podcast',
+                onPressed: _addRssFeed,
+                icon: const Icon(Icons.rss_feed, color: AppColors.muted),
+              ),
             ],
           ),
         ),

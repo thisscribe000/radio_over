@@ -5,6 +5,7 @@ import 'package:radio_over/models/playback.dart';
 import 'package:radio_over/models/podcast_episode.dart';
 import 'package:radio_over/navigation/app_shell.dart';
 import 'package:radio_over/playback/playback_controller.dart';
+import 'package:radio_over/playback/audio_engine.dart';
 import 'package:radio_over/screens/podcast_detail_screen.dart';
 import 'package:radio_over/screens/podcast_player_screen.dart';
 import 'package:radio_over/theme.dart';
@@ -497,6 +498,8 @@ void main() {
         await tester.pump();
 
         expect(controller.podcastPosition.inSeconds, closeTo(32 * 60 ~/ 2, 2));
+        expect((controller.engine as SimulatedAudioEngine).position.inSeconds,
+            closeTo(32 * 60 ~/ 2, 2));
         expect(playerText('16:00'), findsOneWidget);
       });
     });

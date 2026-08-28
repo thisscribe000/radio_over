@@ -9,7 +9,8 @@ import 'data/downloads/download_store.dart';
 import 'data/favourites/favourite_station_store.dart';
 import 'data/library/library_store.dart';
 import 'data/podcasts/podcast_feed_repository.dart';
-import 'data/podcasts/podcast_index_directory_repository.dart';
+import 'data/podcasts/apple_podcast_directory_repository.dart';
+import 'data/podcasts/podcast_feed_store.dart';
 import 'data/progress/playback_progress_store.dart';
 import 'data/radio/radio_browser_repository.dart';
 import 'models/station.dart';
@@ -55,9 +56,10 @@ class _RadioAppState extends State<RadioApp> {
   /// newly discovered episodes can be flagged unseen for the NEW indicator.
   late final AppContent _content = AppContent(
     radio: RadioBrowserRepository(),
-    podcastDirectory: PodcastIndexDirectoryRepository(),
+    podcastDirectory: ApplePodcastDirectoryRepository(),
     podcastFeeds: RssPodcastFeedRepository(),
     isLive: true,
+    customFeedStore: SharedPreferencesPodcastFeedStore(),
     pinnedStation: loveworldRadioStation,
     savedShowsProvider: () => _controller.savedShows,
     onNewEpisodes: (show, episodes) =>
@@ -77,6 +79,7 @@ class _RadioAppState extends State<RadioApp> {
     ));
     unawaited(_content.loadRadio());
     unawaited(_content.loadShows());
+    unawaited(_content.restoreCustomFeeds());
   }
 
   @override

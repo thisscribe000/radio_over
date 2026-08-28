@@ -186,3 +186,26 @@ If you'd like, specify which of the immediate next steps to perform and I'll car
     - `test/playback/playback_source_ownership_test.dart` checks the single active media source, media-session identity, source switching, and pause/resume delegation.
   - `flutter analyze` is clean and the full Flutter suite passes (**263 tests** at the time of this worklog).
   - Real podcast audio population: live Podcast Index search requires `PODCAST_INDEX_KEY` and `PODCAST_INDEX_SECRET`; opening a result resolves its RSS feed, and each RSS `<enclosure url="...">` supplies `PodcastEpisode.audioUrl`. Mock episodes without an enclosure/audio URL remain display fixtures and cannot stream until a real feed is loaded.
+
+  ## Latest worklog (2026-08-28, podcast discovery, RSS import, and seeking)
+
+  - The live app no longer seeds the Podcasts screen with dummy shows. `AppContent`
+    uses the keyless `ApplePodcastDirectoryRepository` to load free public top
+    podcast charts and search results, then resolves each result through the RSS
+    feed repository so real `<enclosure>` URLs become playable
+    `PodcastEpisode.audioUrl` values.
+  - Users can add their own RSS/Atom feed from the RSS action in the Podcasts
+    header. `AppContent.addPodcastFeed()` validates and fetches the URL, adds the
+    parsed show/episodes, and persists the feed URL via
+    `SharedPreferencesPodcastFeedStore`; persisted feeds are restored at startup.
+  - `AppContent.mock()` continues to seed `mockPodcasts` for deterministic widget
+    tests; only the live scope starts without dummy podcast content.
+  - Podcast scrubbing now controls the actual shared audio source:
+    - `AudioEngine` exposes `seek(Duration)`.
+    - `PlaybackController.seek()` updates progress and delegates to the single
+      engine.
+    - `JustAudioEngine` calls `AudioPlayer.seek()`; the simulated engine records
+      the position for tests.
+  - Focused podcast seek coverage verifies a progress-bar tap updates both the
+    displayed controller position and the engine position. `flutter analyze` is
+    clean and the focused podcast/service tests pass.

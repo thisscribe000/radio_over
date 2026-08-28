@@ -7,6 +7,7 @@ import 'podcasts/mock_podcast_feed_repository.dart';
 import 'podcasts/podcast_directory_repository.dart';
 import 'podcasts/podcast_feed_refresh_service.dart';
 import 'podcasts/podcast_feed_repository.dart';
+import 'podcasts/podcast_feed_store.dart';
 import 'radio/mock_radio_repository.dart';
 import 'radio/radio_repository.dart';
 
@@ -39,9 +40,11 @@ class AppContent extends ChangeNotifier {
     this.savedShowsProvider,
     this.onNewEpisodes,
     DateTime Function()? clock,
+    PodcastFeedStore? customFeedStore,
   })  : _now = clock ?? DateTime.now,
         _stations = _applyPinned(List.of(seedStations ?? mockStations), pinnedStation),
-        _shows = List.of(seedShows ?? mockPodcasts);
+        _shows = List.of(seedShows ?? (isLive ? const [] : mockPodcasts)),
+        _customFeedStore = customFeedStore;
 
   /// A station always kept at the front of the radio catalogue, regardless of
   /// what a live load returns or the seed ordering. When set, it is the first
@@ -82,6 +85,7 @@ class AppContent extends ChangeNotifier {
   final RadioRepository radio;
   final PodcastDirectoryRepository podcastDirectory;
   final PodcastFeedRepository podcastFeeds;
+  final PodcastFeedStore? _customFeedStore;
 
   /// Whether [radio]/[podcastDirectory] hit real network sources. When false,
   /// search stays purely local so offline behaviour is deterministic.
@@ -300,13 +304,51 @@ class AppContent extends ChangeNotifier {
       final List<PodcastSearchHit> hits = await podcastDirectory.popular(limit: limit);
       if (hits.isNotEmpty) {
         final List<PodcastSeries> resolved = await Future.wait(hits.map(_resolveShow));
-        _shows = resolved;
+        _shows = [
+          ...resolved,
+          for (final PodcastSeries existing in _shows)
+            if (!resolved.any((show) => show.id == existing.id)) existing,
+        ];
         _announce();
       }
     } on Exception {
       // Offline/unconfigured (e.g. no Podcast Index credentials): keep seed.
     }
     return shows;
+  }
+
+  /// Restores listener-imported feeds without deleting them when temporarily
+  /// offline or when a feed is unavailable.
+  Future<void> restoreCustomFeeds() async {
+    final PodcastFeedStore? store = _customFeedStore;
+    if (store == null) return;
+    for (final String url in await store.load()) {
+      try {
+        updateShow(await podcastFeeds.feed(url));
+      } on Exception {
+        // The URL remains persisted and can be retried on a later launch.
+      }
+    }
+  }
+
+  /// Adds a listener-selected RSS/Atom feed to the catalogue.
+  Future<PodcastSeries> addPodcastFeed(String feedUrl) async {
+    final Uri? uri = Uri.tryParse(feedUrl.trim());
+    if (uri == null ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'https' && uri.scheme != 'http')) {
+      throw const FormatException('Enter a valid RSS feed URL');
+    }
+    final PodcastSeries show = await podcastFeeds.feed(uri.toString());
+    updateShow(show);
+    final PodcastFeedStore? store = _customFeedStore;
+    if (store != null) {
+      final List<String> urls = await store.load();
+      if (!urls.contains(uri.toString())) {
+        await store.save([...urls, uri.toString()]);
+      }
+    }
+    return show;
   }
 
   /// Resolves a full show for a search hit/the popular row. Mock/directory
