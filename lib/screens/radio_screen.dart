@@ -713,7 +713,15 @@ class _StationRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Text(station.category, style: AppTextStyles.stationCategory),
+            Flexible(
+              child: Text(
+                station.category,
+                style: AppTextStyles.stationCategory,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+              ),
+            ),
             const SizedBox(width: 12),
             GestureDetector(
               key: ValueKey('row-detail-${station.name}'),
