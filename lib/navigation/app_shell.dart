@@ -6,6 +6,7 @@ import '../playback/playback_controller.dart';
 import '../screens/library_screen.dart';
 import '../screens/podcasts_screen.dart';
 import '../screens/radio_screen.dart';
+import '../search/recent_searches.dart';
 import '../theme.dart';
 import '../widgets/podcast_mini_player.dart';
 
@@ -17,7 +18,12 @@ import '../widgets/podcast_mini_player.dart';
 /// going while browsing. Dismissing the strip hides it until a new episode is
 /// chosen.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.controller, this.content});
+  const AppShell({
+    super.key,
+    required this.controller,
+    this.content,
+    this.recentSearches,
+  });
 
   final PlaybackController controller;
 
@@ -25,12 +31,18 @@ class AppShell extends StatefulWidget {
   /// so the shell works standalone (and every widget test) without a backend.
   final AppContent? content;
 
+  /// Search history store; defaults to a fresh in-memory instance so the
+  /// shell works standalone without persistence.
+  final RecentSearches? recentSearches;
+
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
   late final AppContent _content = widget.content ?? AppContent.mock();
+  late final RecentSearches _recentSearches =
+      widget.recentSearches ?? RecentSearches();
   int _index = 0;
 
   /// Title of the episode the listener dismissed; null while the strip is
@@ -66,7 +78,11 @@ class _AppShellState extends State<AppShell> {
         index: _index,
         children: [
           RadioScreen(controller: widget.controller, content: _content),
-          PodcastsScreen(controller: widget.controller, content: _content),
+          PodcastsScreen(
+            controller: widget.controller,
+            content: _content,
+            recentSearches: _recentSearches,
+          ),
           LibraryScreen(
             controller: widget.controller,
             content: _content,

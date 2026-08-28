@@ -76,6 +76,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void initState() {
     super.initState();
     controller.addListener(_syncDismissal);
+    unawaited(_recentSearches.restore());
   }
 
   @override

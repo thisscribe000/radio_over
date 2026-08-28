@@ -8,6 +8,7 @@ import '../playback/playback_controller.dart';
 import '../screens/podcast_detail_screen.dart';
 import '../screens/podcast_player_screen.dart';
 import '../screens/search_screen.dart';
+import '../search/recent_searches.dart';
 import '../theme.dart';
 import '../utils/format.dart';
 import '../widgets/podcast_art.dart';
@@ -44,12 +45,21 @@ const List<String> podcastCategories = [
 /// The persistent mini-player slot lives in the app shell, so this screen
 /// only ever hands episodes to the shared [PlaybackController].
 class PodcastsScreen extends StatefulWidget {
-  const PodcastsScreen({super.key, required this.controller, this.content});
+  const PodcastsScreen({
+    super.key,
+    required this.controller,
+    this.content,
+    this.recentSearches,
+  });
 
   final PlaybackController controller;
 
   /// Content source; defaults to the offline mock scope when not provided.
   final AppContent? content;
+
+  /// Search history store forwarded to the global search screen; defaults to a
+  /// fresh in-memory instance when not provided.
+  final RecentSearches? recentSearches;
 
   @override
   State<PodcastsScreen> createState() => _PodcastsScreenState();
@@ -57,6 +67,8 @@ class PodcastsScreen extends StatefulWidget {
 
 class _PodcastsScreenState extends State<PodcastsScreen> {
   late final AppContent _content = widget.content ?? AppContent.mock();
+  late final RecentSearches _recentSearches =
+      widget.recentSearches ?? RecentSearches();
 
   /// The EXPLORE chip currently selected, if any.
   String? _exploreCategory;
@@ -115,7 +127,11 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   void _openSearch() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SearchScreen(controller: controller, content: _content),
+        builder: (_) => SearchScreen(
+          controller: controller,
+          content: _content,
+          recentSearches: _recentSearches,
+        ),
       ),
     );
   }

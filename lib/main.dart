@@ -16,6 +16,8 @@ import 'navigation/app_shell.dart';
 import 'playback/engines/just_audio_engine.dart';
 import 'playback/playback_controller.dart';
 import 'playback/playback_service.dart';
+import 'search/recent_search_store.dart';
+import 'search/recent_searches.dart';
 import 'theme.dart';
 
 void main() => runApp(const RadioApp());
@@ -42,6 +44,10 @@ class _RadioAppState extends State<RadioApp> {
   );
 
   PlaybackService? _audioService;
+
+  /// Persistent search history (SharedPreferences-backed).
+  late final RecentSearches _recentSearches =
+      RecentSearches(store: SharedPreferencesRecentSearchStore());
 
   /// Live content scope (Radio Browser + Podcast Index + RSS feeds). Late so
   /// subscription tracking can read follows straight off the controller and
@@ -84,7 +90,11 @@ class _RadioAppState extends State<RadioApp> {
       title: 'Radio Over',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: AppShell(controller: _controller, content: _content),
+      home: AppShell(
+        controller: _controller,
+        content: _content,
+        recentSearches: _recentSearches,
+      ),
     );
   }
 }
