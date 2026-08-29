@@ -3,7 +3,7 @@
 Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a plain `ChangeNotifier`), no persistence/backend/state-management library. Widget-test driven (`flutter test`), analyzer clean.
 
 ## Build status
-- **238 tests pass, `flutter analyze` clean** (as of Real Search + Discovery).
+- **264 tests pass, `flutter analyze` clean** (as of Podcast Discovery, RSS import, and seeking).
 - **Real Search + Discovery**: the existing `SearchScreen` is wired to the live content sources (no UI redesign, no new search screen). `SearchEngine` (`lib/search/search_engine.dart`) reads through `AppContent` (`isLive`) — `searchStations` → `RadioBrowserRepository.search` (Radio Browser `/stations/search`, `hidebroken=true` to prefer reachable stations; full station fields from the mapper: name/country/language/tags/favicon/logo/`stationuuid`/stream URL) and `searchShows` → `PodcastIndexDirectoryRepository.search` (`/search/byterm`). Results keep the feed URL + directory id as stable primary keys so the existing Podcast/Radio detail and player screens route from search unchanged. Debounce (180ms, `_onChanged`), stale-request protection (`_fetch` checks `term != _term`), and the empty-query guard (returns early, no network) all live in `search_screen.dart`. Follow/save/favourite/download+play still go through the existing controller/stores (no new storage). Manual RSS addition is untouched and independent of directory search.
   - **Episode search limitation**: Podcast Index offers **no global episode-by-term endpoint** (it's an open feature request, podcastindex docs issue #132). Per the provider's capability, episode search is NOT faked/invented — `SearchEngine` searches the local `content.episodes` catalogue (episodes of followed/known/refreshed feeds) and the existing within-feed episode browsing in the detail screen remains. Documented so no one assumes a global episode API exists.
   - **Recent-searches persistence**: `lib/search/recent_search_store.dart` (abstract `RecentSearchStore` + `SharedPreferencesRecentSearchStore`, key `recent-searches-v1`; `InMemoryRecentSearchStore` for tests). `RecentSearches` (`lib/search/recent_searches.dart`) takes an injectable store, `restore()`s on open (SearchScreen `initState`), and saves fire-and-forget on add/remove/clear. Wired from `main.dart` → `AppShell` → `PodcastsScreen` → `SearchScreen`. Defaults in-memory so widget tests never touch platform channels.
@@ -62,14 +62,14 @@ Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a 
 - `flutter analyze`
 - `flutter test`
 
-## Downloads build — where we are (WIP, safe stopping point)
+## Downloads build — Completed
 
 Task: real podcast episode downloads + offline playback (full spec was the "NEXT BUILD TASK" prompt). Radio stays live-stream only. UI must not be redesigned — wire existing surfaces.
 
 **Done so far:**
 - `path_provider` added to pubspec (`shared_preferences` already present).
 - `lib/models/download.dart`: `DownloadStatus { queued, downloading, paused, completed, failed, cancelled }` + `DownloadItem` (id == episodeId — one download per episode; fields: episodeId/podcastId/audioUrl/localPath/fileName/status/progress 0..1/downloadedBytes/totalBytes/createdAt/completedAt/error; `toJson`/`fromJson`; NO embedded episode object by design).
-- `lib/data/downloads/download_store.dart`: `DownloadStore` abstract (`load`/`save` item lists) + `InMemoryDownloadStore` (tests/default) + `SharedPreferencesDownloadStore` (key `podcast-downloads-v1`, JSON list). Nothing references these yet — suite is green at exactly this point.
+- `lib/data/downloads/download_store.dart`: `DownloadStore` abstract (`load`/`save` item lists) + `InMemoryDownloadStore` (tests/default) + `SharedPreferencesDownloadStore` (key `podcast-downloads-v1`, JSON list). These are fully integrated and active.
 
 **Agreed design (do not re-derive):**
 - New `lib/data/downloads/download_manager.dart`: `DownloadManager extends ChangeNotifier`. Injectable `{http.Client?, DownloadStore?, Future<Directory> Function() resolveBaseDir?, DateTime Function() clock?}`. Sequential queue (List<String> episodeIds + Map<String, DownloadItem>), one worker `_pump()` loop.
@@ -161,7 +161,7 @@ If you'd like, specify which of the immediate next steps to perform and I'll car
 
 ## Latest worklog (2026-08-28)
 
-- Real Search + Discovery verified complete: `SearchScreen` reads live content sources through `AppContent` (`RadioBrowserRepository.search` for stations, `PodcastIndexDirectoryRepository.search` for shows) and the subscription/feed-refresh + NEW-episode pipeline (see "Build status" + Completed features) is fully implemented and tested. `flutter analyze` clean, **238 tests pass**.
+- Real Search + Discovery verified complete: `SearchScreen` reads live content sources through `AppContent` (`RadioBrowserRepository.search` for stations, `PodcastIndexDirectoryRepository.search` for shows) and the subscription/feed-refresh + NEW-episode pipeline (see "Build status" + Completed features) is fully implemented and tested. `flutter analyze` clean, **264 tests pass**.
 - Closed the remaining search gaps and committed:
   - Added **recent-searches persistence** (previously in-memory only): new `lib/search/recent_search_store.dart` (abstract `RecentSearchStore` + `SharedPreferencesRecentSearchStore` key `recent-searches-v1` + `InMemoryRecentSearchStore`); `RecentSearches` now takes an injectable store, `restore()`s on SearchScreen `initState`, saves fire-and-forget on add/remove/clear; wired `main.dart` → `AppShell` → `PodcastsScreen` → `SearchScreen`. Defaults in-memory so widget tests never touch platform channels.
   - Tests: `test/search/search_engine_test.dart` (live-path real models for podcasts/stations, empty-query empty set, network-error fallback, manual-RSS feedUrl preserved), `test/search/search_behavior_test.dart` (widget: empty query fires no request, debounce collapses a keystroke burst, late request cannot overwrite newer results), `test/search/recent_searches_test.dart` (persistence restore/save via shared store, bounded, mutate+notify).
