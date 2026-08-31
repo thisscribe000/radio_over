@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radio Over — Radio & Podcasts Redefined</title>
+  <meta name="description" content="Discover and stream live radio stations and podcasts offline. Featuring ICY metadata streams, resumeable background downloads, sleep timers, and custom creator feeds.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header class="header">
+    <div class="nav-container">
+      <div class="logo" id="nav-logo">
+        <span class="logo-accent">Radio</span> Over
+      </div>
+      <nav class="nav-links">
+        <a href="#features" id="link-features">Features</a>
+        <a href="#demo" id="link-demo">Interactive Demo</a>
+        <a href="#about" id="link-about">Platform</a>
+      </nav>
+      <a href="#download" class="btn btn-primary" id="btn-nav-download">Download App</a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <div class="hero-bg-gradients">
+      <div class="gradient-ball ball-1"></div>
+      <div class="gradient-ball ball-2"></div>
+    </div>
+    <div class="container hero-content">
+      <h1 class="hero-title">
+        Radio & Podcasts.<br>
+        <span class="text-gradient">Redefined for the Soul.</span>
+      </h1>
+      <p class="hero-subtitle">
+        Stream live international broadcasts and browse millions of podcasts offline. Unified in-memory playback, background downloads, sleep timer control, and custom RSS integration.
+      </p>
+      <div class="hero-actions">
+        <a href="#download" class="btn btn-primary btn-lg" id="btn-hero-download">Get the V1 Release</a>
+        <a href="#demo" class="btn btn-secondary btn-lg" id="btn-hero-demo">Try Web Preview</a>
+      </div>
+      
+      <!-- Interactive Device Mockup -->
+      <div class="mockup-container" id="app-mockup">
+        <div class="mockup-frame">
+          <div class="mockup-screen">
+            <div class="mockup-app-header">
+              <span class="status-time">9:41</span>
+              <div class="status-icons">
+                <span class="icon-wifi">📶</span>
+                <span class="icon-battery">🔋</span>
+              </div>
+            </div>
+            <div class="mockup-app-body">
+              <div class="mockup-live-badge animate-pulse">LIVE NOW</div>
+              <div class="mockup-title">LOVEWORLD RADIO</div>
+              <div class="mockup-subtitle" id="mockup-metadata">CONNECTING TO STREAM...</div>
+              <div class="mockup-waveform">
+                <div class="bar bar-1"></div>
+                <div class="bar bar-2"></div>
+                <div class="bar bar-3"></div>
+                <div class="bar bar-4"></div>
+                <div class="bar bar-5"></div>
+              </div>
+              <button class="mockup-play-btn" id="mockup-toggle-play">
+                <span id="mockup-btn-text">PLAY</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features" id="features">
+    <div class="container">
+      <h2 class="section-title">Engineered for Perfection</h2>
+      <p class="section-subtitle">Everything you need from local storage to background play.</p>
+      
+      <div class="features-grid">
+        <div class="feature-card" id="feature-radio">
+          <div class="feature-icon">📻</div>
+          <h3>Live ICY Radio</h3>
+          <p>Stream real-time global stations with smart metadata integration. Pinned Loveworld Radio stays permanently at your fingertips with automatic retry reconnect protocols.</p>
+        </div>
+        
+        <div class="feature-card" id="feature-podcasts">
+          <div class="feature-icon">🎙️</div>
+          <h3>Millions of Shows</h3>
+          <p>Search via the Podcast Index directory or paste manual RSS feeds. Feed synchronization updates episodes in the background while preserving your listening offsets.</p>
+        </div>
+        
+        <div class="feature-card" id="feature-downloads">
+          <div class="feature-icon">💾</div>
+          <h3>Offline Downloads</h3>
+          <p>Download full episodes to local storage sequentially. Interruptions resume cleanly using smart file chunk byte-range calls without wasting bandwidth.</p>
+        </div>
+        
+        <div class="feature-card" id="feature-sleeptimer">
+          <div class="feature-icon">⏳</div>
+          <h3>Intelligent Sleep Timer</h3>
+          <p>Set standard minute duration countdowns or stop playback at the exact end of an episode, fading audio gracefully to protect your ears.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Web Preview Demo -->
+  <section class="demo-section" id="demo">
+    <div class="container">
+      <h2 class="section-title">Experience the Player Interface</h2>
+      <p class="section-subtitle">Interact with our simulated high-performance playback controller.</p>
+      
+      <div class="demo-panel">
+        <div class="demo-player-box">
+          <div class="demo-player-art" id="demo-art">📻</div>
+          <div class="demo-player-details">
+            <h4 id="demo-title">Loveworld Radio</h4>
+            <p id="demo-subtitle">LIVE BROADCAST</p>
+          </div>
+          <div class="demo-progress-container">
+            <span class="time-label" id="demo-time-elapsed">0:00</span>
+            <div class="demo-progress-bar" id="demo-progress-bar">
+              <div class="demo-progress-fill" id="demo-progress-fill"></div>
+            </div>
+            <span class="time-label" id="demo-time-total">LIVE</span>
+          </div>
+          <div class="demo-controls">
+            <button class="demo-btn" id="demo-btn-prev">⏮</button>
+            <button class="demo-btn btn-play" id="demo-btn-play">PLAY</button>
+            <button class="demo-btn" id="demo-btn-next">⏭</button>
+          </div>
+        </div>
+        <div class="demo-playlist">
+          <h3>DEMO PLAYLIST</h3>
+          <div class="playlist-item active" id="item-live" onclick="selectDemoItem('live')">
+            <span class="item-icon">📻</span>
+            <div class="item-info">
+              <h4>Loveworld Radio Broadcast</h4>
+              <p>Live Station stream</p>
+            </div>
+            <span class="item-badge">LIVE</span>
+          </div>
+          <div class="playlist-item" id="item-pod1" onclick="selectDemoItem('pod1')">
+            <span class="item-icon">🎙️</span>
+            <div class="item-info">
+              <h4>Building the Future (Ep. 42)</h4>
+              <p>Radio Over Podcast</p>
+            </div>
+            <span class="item-duration">24:15</span>
+          </div>
+          <div class="playlist-item" id="item-pod2" onclick="selectDemoItem('pod2')">
+            <span class="item-icon">🎙️</span>
+            <div class="item-info">
+              <h4>Acoustic Melodies Showcase</h4>
+              <p>Worship & Praise</p>
+            </div>
+            <span class="item-duration">18:40</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call To Action Download Section -->
+  <section class="download-section" id="download">
+    <div class="container">
+      <div class="cta-box">
+        <h2>Start Listening Today</h2>
+        <p>Get the V1 production build with shared preferences local data storage, background audio playback notification session, and custom styled profiles.</p>
+        <div class="download-buttons">
+          <a href="#" class="btn btn-primary btn-lg" id="download-ios">Download for iOS</a>
+          <a href="#" class="btn btn-secondary btn-lg" id="download-android">Download for Android</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <p>&copy; 2026 Radio Over. All rights reserved.</p>
+      <div class="footer-links">
+        <a href="#" id="footer-terms">Terms & Conditions</a>
+        <a href="#" id="footer-privacy">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
