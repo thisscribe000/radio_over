@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../theme.dart';
 
@@ -49,9 +49,10 @@ class PillTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.hairline)),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.hairline)),
       ),
       child: SafeArea(
         top: false,
@@ -95,17 +96,18 @@ class _PillTabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final Widget content = selected
         ? Text(
             label,
             key: ValueKey('$label-label'),
-            style: AppTextStyles.navLabel.copyWith(color: AppColors.ink),
+            style: AppTextStyles.navLabel.copyWith(color: colors.ink),
           )
         : Icon(
             icon,
             key: ValueKey('$label-icon'),
             size: 22,
-            color: AppColors.muted,
+            color: colors.muted,
           );
 
     return Center(

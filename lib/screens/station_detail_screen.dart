@@ -147,6 +147,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   // --- Top ----------------------------------------------------------------
 
   Widget _buildTopBar() {
+    final colors = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
       child: Row(
@@ -156,7 +157,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
             tooltip: 'Back',
             visualDensity: VisualDensity.compact,
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
+            icon: Icon(Icons.arrow_back, size: 22, color: colors.ink),
           ),
           Expanded(
             child: Center(
@@ -168,7 +169,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
             tooltip: 'Share',
             visualDensity: VisualDensity.compact,
             onPressed: () {},
-            icon: const Icon(Icons.share_outlined, size: 18, color: AppColors.muted),
+            icon: Icon(Icons.share_outlined, size: 18, color: colors.muted),
           ),
           const SizedBox(width: 48),
         ],
@@ -212,6 +213,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   // --- Primary actions ----------------------------------------------------
 
   Widget _buildListen() {
+    final colors = AppColors.of(context);
     final bool playing = controller.radioActive &&
         controller.currentStation?.stationId == station.stationId &&
         controller.isPlaying;
@@ -223,8 +225,8 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
         height: 56,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: playing ? AppColors.ink : AppColors.background,
-          border: Border.all(color: playing ? AppColors.ink : AppColors.hairline),
+          color: playing ? colors.ink : colors.background,
+          border: Border.all(color: playing ? colors.ink : colors.hairline),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -232,13 +234,13 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
             Icon(
               playing ? Icons.pause : Icons.play_arrow,
               size: 18,
-              color: playing ? AppColors.background : AppColors.ink,
+              color: playing ? colors.background : colors.ink,
             ),
             const SizedBox(width: 10),
             Text(
               playing ? 'PLAYING NOW' : 'LISTEN LIVE',
               style: AppTextStyles.navLabel.copyWith(
-                color: playing ? AppColors.background : AppColors.ink,
+                color: playing ? colors.background : colors.ink,
               ),
             ),
           ],
@@ -248,6 +250,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   }
 
   Widget _buildFavourite() {
+    final colors = AppColors.of(context);
     final bool favourite = controller.isFavouriteStation(station.stationId);
     return GestureDetector(
       key: const ValueKey('detail-favourite'),
@@ -259,13 +262,13 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border.all(
-            color: favourite ? AppColors.ink : AppColors.hairline,
+            color: favourite ? colors.ink : colors.hairline,
           ),
         ),
         child: Text(
           favourite ? '♥ SAVED' : '♡ SAVE STATION',
           style: AppTextStyles.nowPlayingLabel.copyWith(
-            color: favourite ? AppColors.ink : AppColors.muted,
+            color: favourite ? colors.ink : colors.muted,
           ),
         ),
       ),
@@ -275,6 +278,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   // --- Live now -----------------------------------------------------------
 
   Widget _buildNowPlaying() {
+    final colors = AppColors.of(context);
     final RadioProgramme? current = station.currentProgramme;
     final String title = current?.title ?? station.program;
     final String? host = current?.host;
@@ -290,7 +294,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.hairline),
+            border: Border.all(color: colors.hairline),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,6 +323,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   }
 
   Widget _buildUpNext() {
+    final colors = AppColors.of(context);
     final RadioProgramme? next = station.nextProgramme;
     if (next == null) return const SizedBox.shrink();
 
@@ -332,7 +337,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.hairline),
+            border: Border.all(color: colors.hairline),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,6 +366,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   // --- Schedule -----------------------------------------------------------
 
   Widget _buildSchedule() {
+    final colors = AppColors.of(context);
     final List<RadioProgramme> programmes = [
       for (final RadioProgramme p in station.schedule)
         if (p.day == _day) p,
@@ -385,13 +391,13 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: _day == day ? AppColors.ink : AppColors.hairline,
+                        color: _day == day ? colors.ink : colors.hairline,
                       ),
                     ),
                     child: Text(
                       day,
                       style: AppTextStyles.nowPlayingLabel.copyWith(
-                        color: _day == day ? AppColors.ink : AppColors.muted,
+                        color: _day == day ? colors.ink : colors.muted,
                       ),
                     ),
                   ),
@@ -425,7 +431,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                 ),
               ],
             ),
-            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+            Divider(height: 1, thickness: 1, color: colors.hairline),
           ],
       ],
     );
@@ -455,6 +461,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   }
 
   Widget _buildDetails() {
+    final colors = AppColors.of(context);
     return Column(
       key: const ValueKey('detail-details'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,7 +484,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
               ],
             ),
           ),
-          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          Divider(height: 1, thickness: 1, color: colors.hairline),
         ],
       ],
     );
@@ -583,13 +590,14 @@ class _StationMonogram extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: colors.hairline),
       ),
       child: Text(_initials, style: AppTextStyles.playerStation),
     );
@@ -650,6 +658,7 @@ class _StationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey('related-${station.stationId}'),
       behavior: HitTestBehavior.opaque,
@@ -675,7 +684,7 @@ class _StationCard extends StatelessWidget {
               children: [
                 const Text('LISTEN', style: AppTextStyles.nowPlayingLabel),
                 const Spacer(),
-                Icon(Icons.play_arrow, size: 16, color: AppColors.accent),
+                Icon(Icons.play_arrow, size: 16, color: colors.accent),
               ],
             ),
           ],

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/podcast_episode.dart';
@@ -8,6 +10,7 @@ import 'podcasts/podcast_directory_repository.dart';
 import 'podcasts/podcast_feed_refresh_service.dart';
 import 'podcasts/podcast_feed_repository.dart';
 import 'podcasts/podcast_feed_store.dart';
+import 'podcasts/podcast_catalogue_store.dart';
 import 'radio/mock_radio_repository.dart';
 import 'radio/radio_repository.dart';
 
@@ -41,10 +44,12 @@ class AppContent extends ChangeNotifier {
     this.onNewEpisodes,
     DateTime Function()? clock,
     PodcastFeedStore? customFeedStore,
+    PodcastCatalogueStore? catalogueStore,
   })  : _now = clock ?? DateTime.now,
         _stations = _applyPinned(List.of(seedStations ?? mockStations), pinnedStation),
         _shows = List.of(seedShows ?? (isLive ? const [] : mockPodcasts)),
-        _customFeedStore = customFeedStore;
+        _customFeedStore = customFeedStore,
+        _catalogueStore = catalogueStore;
 
   /// A station always kept at the front of the radio catalogue, regardless of
   /// what a live load returns or the seed ordering. When set, it is the first
@@ -80,12 +85,14 @@ class AppContent extends ChangeNotifier {
         podcastFeeds: const MockPodcastFeedRepository(),
         savedShowsProvider: savedShowsProvider,
         onNewEpisodes: onNewEpisodes,
+        catalogueStore: InMemoryPodcastCatalogueStore(),
       );
 
   final RadioRepository radio;
   final PodcastDirectoryRepository podcastDirectory;
   final PodcastFeedRepository podcastFeeds;
   final PodcastFeedStore? _customFeedStore;
+  final PodcastCatalogueStore? _catalogueStore;
 
   /// Whether [radio]/[podcastDirectory] hit real network sources. When false,
   /// search stays purely local so offline behaviour is deterministic.
@@ -161,6 +168,7 @@ class AppContent extends ChangeNotifier {
       _shows[index] = show;
     }
     _announce();
+    unawaited(_catalogueStore?.save(_shows).catchError((_) {}));
   }
 
   /// Refreshes the radio catalogue from [radio]. Any failure keeps the
@@ -303,18 +311,53 @@ class AppContent extends ChangeNotifier {
     try {
       final List<PodcastSearchHit> hits = await podcastDirectory.popular(limit: limit);
       if (hits.isNotEmpty) {
-        final List<PodcastSeries> resolved = await Future.wait(hits.map(_resolveShow));
+        final List<PodcastSeries> resolved = [];
+        for (final PodcastSearchHit hit in hits) {
+          final String id = hit.directoryId ?? hit.title;
+          final PodcastSeries? existing = showById(id);
+          if (existing != null && existing.episodes.isNotEmpty) {
+            resolved.add(existing);
+          } else {
+            resolved.add(hit.toSeries());
+          }
+        }
         _shows = [
           ...resolved,
           for (final PodcastSeries existing in _shows)
             if (!resolved.any((show) => show.id == existing.id)) existing,
         ];
         _announce();
+
+        // Pre-resolve the first few popular shows in the background
+        for (final PodcastSeries show in resolved.take(6)) {
+          if (show.episodes.isEmpty) {
+            unawaited(feedRefresh.resolveForDisplay(show).catchError((_) => show));
+          }
+        }
       }
     } on Exception {
       // Offline/unconfigured (e.g. no Podcast Index credentials): keep seed.
     }
     return shows;
+  }
+
+  /// Restores previously cached podcast shows and episodes from disk.
+  Future<void> restoreCatalogue() async {
+    final PodcastCatalogueStore? store = _catalogueStore;
+    if (store == null) return;
+    try {
+      final List<PodcastSeries> cached = await store.load();
+      if (cached.isNotEmpty) {
+        _shows = [
+          ...cached,
+          for (final PodcastSeries existing in _shows)
+            if (!cached.any((s) => s.id == existing.id)) existing,
+        ];
+        _announce();
+      }
+    } catch (_) {
+      // Ignore cache load errors.
+    }
   }
 
   /// Restores listener-imported feeds without deleting them when temporarily
@@ -351,28 +394,7 @@ class AppContent extends ChangeNotifier {
     return show;
   }
 
-  /// Resolves a full show for a search hit/the popular row. Mock/directory
-  /// hits without a feed map back onto the local catalogue; real hits load
-  /// their RSS feed (staying stable by the directory id).
-  Future<PodcastSeries> _resolveShow(PodcastSearchHit hit) async {
-    final String? feed = hit.feedUrl;
-    if (feed == null || feed.isEmpty) {
-      final PodcastSeries? local = showById(hit.directoryId ?? '');
-      if (local != null) return local;
-      return hit.toSeries();
-    }
-    try {
-      return await podcastFeeds.feed(
-        feed,
-        preferredId: hit.directoryId,
-        preferredName: hit.title,
-        preferredAuthor: hit.author,
-        preferredImageUrl: hit.imageUrl,
-      );
-    } on Exception {
-      return hit.toSeries();
-    }
-  }
+
 
   /// Resolves a full [PodcastSeries] for a show skeleton (e.g. a search hit).
   /// Keeps the skeleton when the feed cannot be reached.

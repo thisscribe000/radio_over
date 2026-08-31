@@ -72,6 +72,7 @@ class _PodcastCaptionsState extends State<PodcastCaptions> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     if (_highlightedIndex == -1) {
       _highlightedIndex = _indexAt(widget.position);
     }
@@ -92,17 +93,17 @@ class _PodcastCaptionsState extends State<PodcastCaptions> {
               duration: const Duration(milliseconds: _fadeDurationMs),
               curve: Curves.easeOut,
               style: active
-                  ? const TextStyle(
+                  ? TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w600,
                       height: 1.3,
-                      color: AppColors.ink,
+                      color: colors.ink,
                     )
-                  : const TextStyle(
+                  : TextStyle(
                       fontSize: 19,
                       fontWeight: FontWeight.w400,
                       height: 1.4,
-                      color: AppColors.muted,
+                      color: colors.muted,
                     ),
               child: Text(
                 caption.text,

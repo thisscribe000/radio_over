@@ -12,6 +12,7 @@ class PlayerTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Row(
       children: [
         IconButton(
@@ -19,7 +20,7 @@ class PlayerTopBar extends StatelessWidget {
           tooltip: 'Back',
           visualDensity: VisualDensity.compact,
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
+          icon: Icon(Icons.arrow_back, size: 22, color: colors.ink),
         ),
         Expanded(
           child: Center(

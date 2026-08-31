@@ -26,6 +26,10 @@ class JustAudioEngine implements StatefulAudioEngine {
   /// rebuilding it when toggling pause/resume.
   bool _hasSource = false;
 
+  /// Whether the user intends for the player to play once loading completes.
+  /// Used to prevent playback from starting if the user pauses during buffering.
+  bool _playWhenReady = false;
+
   String? _lastMetadata;
   EngineStreamState _lastState = EngineStreamState.idle;
   int _sourceGeneration = 0;
@@ -83,6 +87,7 @@ class JustAudioEngine implements StatefulAudioEngine {
   @override
   Future<void> start(String url) {
     final int generation = ++_sourceGeneration;
+    _playWhenReady = true;
     // Stop immediately so a failed or empty replacement can never leave the
     // previous source audible while the new source is being resolved.
     _hasSource = false;
@@ -113,7 +118,9 @@ class JustAudioEngine implements StatefulAudioEngine {
       }
       if (generation != _sourceGeneration) return;
       _hasSource = true;
-      await _player.play();
+      if (_playWhenReady) {
+        await _player.play();
+      }
     } catch (_) {
       // Source unreachable/unsupported/failed — surface the failure instead
       // of throwing into the controller's fire-and-forget calls.
@@ -124,6 +131,7 @@ class JustAudioEngine implements StatefulAudioEngine {
 
   @override
   Future<void> pause() {
+    _playWhenReady = false;
     try {
       return _player.pause();
     } catch (_) {
@@ -133,6 +141,7 @@ class JustAudioEngine implements StatefulAudioEngine {
 
   @override
   Future<void> resume() {
+    _playWhenReady = true;
     if (!_hasSource) return Future<void>.value();
     try {
       return _player.play();
@@ -152,6 +161,7 @@ class JustAudioEngine implements StatefulAudioEngine {
 
   @override
   Future<void> stop() {
+    _playWhenReady = false;
     _sourceGeneration++;
     _hasSource = false;
     _lastMetadata = null;

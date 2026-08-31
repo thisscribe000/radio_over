@@ -11,18 +11,36 @@ import 'data/library/library_store.dart';
 import 'data/podcasts/podcast_feed_repository.dart';
 import 'data/podcasts/apple_podcast_directory_repository.dart';
 import 'data/podcasts/podcast_feed_store.dart';
+import 'data/podcasts/podcast_catalogue_store.dart';
 import 'data/progress/playback_progress_store.dart';
 import 'data/radio/radio_browser_repository.dart';
+import 'data/theme/theme_store.dart';
+import 'data/profile/user_profile_store.dart';
+import 'data/profile/firebase_user_profile_store.dart';
+import 'data/profile/firebase_service.dart';
 import 'models/station.dart';
 import 'navigation/app_shell.dart';
 import 'playback/engines/just_audio_engine.dart';
 import 'playback/playback_controller.dart';
 import 'playback/playback_service.dart';
+import 'screens/onboarding_screen.dart';
 import 'search/recent_search_store.dart';
 import 'search/recent_searches.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'theme.dart';
 
-void main() => runApp(const RadioApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (_) {
+    // Fall back to local mode if Firebase initialization fails
+  }
+  runApp(const RadioApp());
+}
 
 /// Root of the app.
 ///
@@ -42,6 +60,11 @@ class _RadioAppState extends State<RadioApp> {
     favouriteStore: SharedPreferencesFavouriteStationStore(),
     libraryStore: SharedPreferencesLibraryStore(),
     progressStore: SharedPreferencesPlaybackProgressStore(),
+    themeStore: SharedPreferencesThemeStore(),
+    profileStore: FirebaseUserProfileStore(
+      localStore: SharedPreferencesUserProfileStore(),
+      firebaseService: FirebaseService(),
+    ),
     downloads: DownloadManager(store: SharedPreferencesDownloadStore()),
   );
 
@@ -60,6 +83,7 @@ class _RadioAppState extends State<RadioApp> {
     podcastFeeds: RssPodcastFeedRepository(),
     isLive: true,
     customFeedStore: SharedPreferencesPodcastFeedStore(),
+    catalogueStore: SharedPreferencesPodcastCatalogueStore(),
     pinnedStation: loveworldRadioStation,
     savedShowsProvider: () => _controller.savedShows,
     onNewEpisodes: (show, episodes) =>
@@ -77,6 +101,7 @@ class _RadioAppState extends State<RadioApp> {
         androidNotificationChannelName: 'Radio Over',
       ),
     ));
+    unawaited(_content.restoreCatalogue());
     unawaited(_content.loadRadio());
     unawaited(_content.loadShows());
     unawaited(_content.restoreCustomFeeds());
@@ -91,15 +116,24 @@ class _RadioAppState extends State<RadioApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Radio Over',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      home: AppShell(
-        controller: _controller,
-        content: _content,
-        recentSearches: _recentSearches,
-      ),
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Radio Over',
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(Brightness.light),
+          darkTheme: buildAppTheme(Brightness.dark),
+          themeMode: _controller.themeMode,
+          home: _controller.hasCompletedOnboarding
+              ? AppShell(
+                  controller: _controller,
+                  content: _content,
+                  recentSearches: _recentSearches,
+                )
+              : OnboardingScreen(controller: _controller),
+        );
+      },
     );
   }
 }

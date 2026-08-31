@@ -322,7 +322,7 @@ class DownloadManager extends ChangeNotifier {
 
     final http.StreamedResponse response;
     try {
-      response = await _client.send(request);
+      response = await _client.send(request).timeout(const Duration(seconds: 15));
     } on SocketException {
       _fail(id, 'Connection lost');
       return;

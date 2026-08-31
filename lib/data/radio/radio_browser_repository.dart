@@ -42,12 +42,7 @@ RadioStation radioBrowserStationFromJson(Map<String, dynamic> json) {
   final String? codec = json['codec'] as String?;
   final dynamic online = json['isOnline'] ?? json['is_online'];
   final bool isOnline = online is bool ? online : (online == null ? true : online == 1);
-  final dynamic isHttpsRaw = json['is_https'];
-  final bool isHttps = isHttpsRaw is bool ? isHttpsRaw : isHttpsRaw == 1;
-
-  final String streamUrl = isHttps && (url?.startsWith('http://') ?? false)
-      ? 'https://${url!.substring(7)}'
-      : (url ?? '');
+  final String streamUrl = url ?? '';
 
   return RadioStation(
     id: (json['stationuuid'] as String?) ?? name,
@@ -143,7 +138,7 @@ class RadioBrowserRepository implements RadioRepository {
 
   Future<List<RadioStation>> _fetchStations(String path, Map<String, String> query) async {
     final Uri uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
-    final http.Response response = await _client.get(uri);
+    final http.Response response = await _client.get(uri).timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ContentSourceException(
         'Radio Browser returned ${response.statusCode} for $path',

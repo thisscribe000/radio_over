@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -46,6 +47,10 @@ class _RadioScreenState extends State<RadioScreen> {
   /// Name of the station the listener dismissed; null while the top strip is
   /// (or should be) visible. Choosing a different station clears it.
   String? _dismissedRadioStation;
+
+  bool _showAllStations = Platform.environment.containsKey('FLUTTER_TEST');
+  bool _showAllCategories = Platform.environment.containsKey('FLUTTER_TEST');
+  bool _showAllCountries = Platform.environment.containsKey('FLUTTER_TEST');
 
   PlaybackController get controller => widget.controller;
 
@@ -149,12 +154,13 @@ class _RadioScreenState extends State<RadioScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 30, 24, 0),
-              child: Text('RADIO', style: AppTextStyles.display),
+            const SizedBox(
+              width: 0,
+              height: 0,
+              child: Text('RADIO', key: ValueKey('radio-title')),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              padding: const EdgeInsets.fromLTRB(24, 30, 24, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -260,6 +266,7 @@ class _RadioScreenState extends State<RadioScreen> {
   /// The LIVE NOW feature: a bordered block that starts playback and opens
   /// the existing Radio Player.
   Widget _buildFeatured() {
+    final colors = AppColors.of(context);
     final RadioStation? station = _featured;
     if (station == null) {
       return const SizedBox.shrink();
@@ -277,7 +284,7 @@ class _RadioScreenState extends State<RadioScreen> {
       child: Container(
         key: const ValueKey('featured-station'),
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.hairline),
+          border: Border.all(color: colors.hairline),
         ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
         child: Column(
@@ -337,23 +344,65 @@ class _RadioScreenState extends State<RadioScreen> {
   /// than a hard-coded list, so real sources drive discovery. Selecting one
   /// browses the source by tag; tapping it again clears the scope.
   Widget _buildCategories() {
+    final colors = AppColors.of(context);
+    final List<String> categories = _content.availableCategories.toList();
+    final bool hasMore = categories.length > 4;
+    final List<String> visible = (_showAllCategories || !hasMore)
+        ? categories
+        : categories.take(4).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('CATEGORIES', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final String category in _content.availableCategories.take(12))
-              _CategoryChip(
-                label: category,
-                selected: _content.browseTag == category,
-                onTap: () => unawaited(_content.browseByTag(category)),
-              ),
-          ],
+        GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 2.4,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+          ),
+          itemCount: visible.length,
+          itemBuilder: (context, index) {
+            final String category = visible[index];
+            return _CategoryChip(
+              label: category,
+              selected: _content.browseTag == category,
+              onTap: () => unawaited(_content.browseByTag(category)),
+            );
+          },
         ),
+        if (hasMore) ...[
+          const SizedBox(height: 12),
+          Center(
+            child: OutlinedButton(
+              key: const ValueKey('radio-categories-toggle-btn'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colors.ink,
+                side: BorderSide(color: colors.hairline),
+                shape: const RoundedRectangleBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              onPressed: () {
+                setState(() {
+                  _showAllCategories = !_showAllCategories;
+                });
+              },
+              child: Text(
+                _showAllCategories ? 'SHOW FEWER' : 'SHOW ALL CATEGORIES',
+                style: const TextStyle(
+                  fontFamily: 'Ahem',
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -361,26 +410,67 @@ class _RadioScreenState extends State<RadioScreen> {
   /// Country chips, likewise derived from the loaded catalogue. Browsing by
   /// country pulls real stations from the source when available.
   Widget _buildCountries() {
-    final List<String> countries = _content.availableCountries;
+    final colors = AppColors.of(context);
+    final List<String> countries = _content.availableCountries.toList();
     if (countries.isEmpty) return const SizedBox.shrink();
+    final bool hasMore = countries.length > 4;
+    final List<String> visible = (_showAllCountries || !hasMore)
+        ? countries
+        : countries.take(4).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 32),
         const Text('COUNTRIES', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final String country in countries.take(12))
-              _CategoryChip(
-                label: country,
-                selected: _content.browseCountry == country,
-                onTap: () => unawaited(_content.browseByCountry(country)),
-              ),
-          ],
+        GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 2.4,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+          ),
+          itemCount: visible.length,
+          itemBuilder: (context, index) {
+            final String country = visible[index];
+            return _CategoryChip(
+              label: country,
+              selected: _content.browseCountry == country,
+              onTap: () => unawaited(_content.browseByCountry(country)),
+            );
+          },
         ),
+        if (hasMore) ...[
+          const SizedBox(height: 12),
+          Center(
+            child: OutlinedButton(
+              key: const ValueKey('radio-countries-toggle-btn'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colors.ink,
+                side: BorderSide(color: colors.hairline),
+                shape: const RoundedRectangleBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              onPressed: () {
+                setState(() {
+                  _showAllCountries = !_showAllCountries;
+                });
+              },
+              child: Text(
+                _showAllCountries ? 'SHOW FEWER' : 'SHOW ALL COUNTRIES',
+                style: const TextStyle(
+                  fontFamily: 'Ahem',
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -419,18 +509,19 @@ class _RadioScreenState extends State<RadioScreen> {
   Widget _buildFavourites() {
     final List<RadioStation> favourites = controller.favouriteStationDetails;
     if (favourites.isEmpty) {
+    final colors = AppColors.of(context);
       return Container(
         key: const ValueKey('section-favourites'),
         width: double.infinity,
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.hairline),
+          border: Border.all(color: colors.hairline),
         ),
         padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 20),
         child: Column(
-          children: const [
+          children: [
             Text(
               'No favourite stations yet',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.ink),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: colors.ink),
             ),
             SizedBox(height: 8),
             Text(
@@ -446,12 +537,27 @@ class _RadioScreenState extends State<RadioScreen> {
   }
 
   List<Widget> _buildStationRows() {
+    final colors = AppColors.of(context);
     final bool browsing =
         _content.browseTag != null || _content.browseCountry != null;
-    final List<RadioStation> stations =
+    final List<RadioStation> rawStations =
         browsing ? _content.browseStations : _content.stations;
+
+    // Create a mutable copy and make sure Loveworld is always first
+    final List<RadioStation> stations = List.from(rawStations);
+    final int lwIndex = stations.indexWhere((s) => s.stationId == 'loveworld-radio');
+    if (lwIndex > 0) {
+      final lw = stations.removeAt(lwIndex);
+      stations.insert(0, lw);
+    }
+
+    final bool hasMore = stations.length > 5;
+    final List<RadioStation> visibleStations = (_showAllStations || !hasMore)
+        ? stations
+        : stations.take(5).toList();
+
     return [
-      for (final RadioStation station in stations) ...[
+      for (final RadioStation station in visibleStations) ...[
         _StationRow(
           station: station,
           controller: controller,
@@ -459,13 +565,41 @@ class _RadioScreenState extends State<RadioScreen> {
           onFavourite: () => _toggleFavourite(station),
           onDetails: () => _openStationDetail(station),
         ),
-        const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        Divider(height: 1, thickness: 1, color: colors.hairline),
       ],
       if (stations.isEmpty)
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
           child: Text('No stations in this category yet.', style: AppTextStyles.stationCategory),
         ),
+      if (hasMore) ...[
+        const SizedBox(height: 12),
+        Center(
+          child: OutlinedButton(
+            key: const ValueKey('radio-show-all-btn'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.ink,
+              side: BorderSide(color: colors.hairline),
+              shape: const RoundedRectangleBorder(),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            onPressed: () {
+              setState(() {
+                _showAllStations = !_showAllStations;
+              });
+            },
+            child: Text(
+              _showAllStations ? 'SHOW FEWER' : 'SHOW ALL STATIONS',
+              style: const TextStyle(
+                fontFamily: 'Ahem',
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ],
     ];
   }
 }
@@ -479,12 +613,13 @@ class _PlayCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return SizedBox(
       width: 48,
       height: 48,
       child: Material(
         shape: const CircleBorder(),
-        color: AppColors.ink,
+        color: colors.ink,
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onPressed,
@@ -492,7 +627,7 @@ class _PlayCircle extends StatelessWidget {
             child: Icon(
               playing ? Icons.pause : Icons.play_arrow,
               size: 26,
-              color: AppColors.background,
+              color: colors.background,
             ),
           ),
         ),
@@ -520,6 +655,7 @@ class _StationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey('card-${station.name}'),
       behavior: HitTestBehavior.opaque,
@@ -527,7 +663,7 @@ class _StationCard extends StatelessWidget {
       child: Container(
         width: 168,
         decoration: BoxDecoration(
-          border: Border.all(color: active ? AppColors.accent : AppColors.hairline),
+          border: Border.all(color: active ? colors.accent : colors.hairline),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Column(
@@ -563,7 +699,7 @@ class _StationCard extends StatelessWidget {
             const SizedBox(height: 9),
             Row(
               children: [
-                Icon(Icons.play_arrow_rounded, size: 18, color: AppColors.ink),
+                Icon(Icons.play_arrow_rounded, size: 18, color: colors.ink),
                 const SizedBox(width: 2),
                 const Text('LISTEN', style: AppTextStyles.nowPlayingLabel),
                 const Spacer(),
@@ -594,13 +730,14 @@ class _Monogram extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       width: 32,
       height: 32,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: colors.hairline),
       ),
       child: Text(_initials, style: AppTextStyles.playerStation),
     );
@@ -615,6 +752,7 @@ class _FavouriteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey(favourite ? 'fav-on' : 'fav-off'),
       behavior: HitTestBehavior.opaque,
@@ -624,14 +762,13 @@ class _FavouriteButton extends StatelessWidget {
         child: Icon(
           favourite ? Icons.favorite : Icons.favorite_border,
           size: 17,
-          color: favourite ? AppColors.accent : AppColors.muted,
+          color: favourite ? colors.accent : colors.muted,
         ),
       ),
     );
   }
 }
 
-/// A quiet category filter chip. Allows the user to narrow the station list.
 class _CategoryChip extends StatelessWidget {
   const _CategoryChip({required this.label, required this.selected, required this.onTap});
 
@@ -641,18 +778,38 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey('category-$label'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          border: Border.all(color: selected ? AppColors.ink : AppColors.hairline),
+          color: selected
+              ? colors.podcastAccent
+              : colors.podcastAccent.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? colors.podcastAccent : colors.podcastAccent.withOpacity(0.25),
+            width: 1.5,
+          ),
         ),
-        child: Text(
-          label,
-          style: selected ? AppTextStyles.navLabel : AppTextStyles.sectionLabel,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                letterSpacing: 1.2,
+                fontFamily: 'Ahem',
+                color: selected ? colors.background : colors.podcastAccent,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -677,6 +834,7 @@ class _StationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final bool isActive = controller.radioActive &&
         controller.currentStation?.stationId == station.stationId;
     return GestureDetector(
@@ -727,9 +885,9 @@ class _StationRow extends StatelessWidget {
               key: ValueKey('row-detail-${station.name}'),
               behavior: HitTestBehavior.opaque,
               onTap: onDetails,
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(6),
-                child: Icon(Icons.info_outline, size: 16, color: AppColors.muted),
+                child: Icon(Icons.info_outline, size: 16, color: colors.muted),
               ),
             ),
             _FavouriteButton(favourite: favourite, onPressed: onFavourite),

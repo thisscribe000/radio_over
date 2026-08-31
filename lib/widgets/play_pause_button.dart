@@ -16,12 +16,13 @@ class PlayPauseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return SizedBox(
       width: 76,
       height: 76,
       child: Material(
         shape: const CircleBorder(),
-        color: AppColors.ink,
+        color: colors.ink,
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onPressed,
@@ -43,7 +44,7 @@ class PlayPauseButton extends StatelessWidget {
                 playing ? Icons.pause : Icons.play_arrow,
                 key: ValueKey(playing ? 'icon-pause' : 'icon-play'),
                 size: 34,
-                color: AppColors.background,
+                color: colors.background,
               ),
             ),
           ),

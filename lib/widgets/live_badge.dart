@@ -76,12 +76,13 @@ class _LiveDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       width: 7,
       height: 7,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.accent,
+        color: colors.accent,
       ),
     );
   }

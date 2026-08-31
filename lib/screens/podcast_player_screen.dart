@@ -6,7 +6,6 @@ import '../playback/playback_controller.dart';
 import '../theme.dart';
 import '../utils/format.dart';
 import '../widgets/now_playing_info.dart';
-import '../widgets/play_pause_button.dart';
 import '../widgets/player_icon_button.dart';
 import '../widgets/player_top_bar.dart';
 import '../widgets/podcast_art.dart';
@@ -21,7 +20,7 @@ import '../widgets/sleep_timer_sheet.dart';
 /// The sibling of the Radio Player: same scaffold, top bar and Play/Pause
 /// language, but a quieter, time-based personality — artwork, episode-first
 /// typography, a scrubbable timeline, skip controls and a small set of quiet
-/// secondary actions. A muted teal accent ([AppColors.podcastAccent]) marks
+/// secondary actions. A muted teal accent ([colors.podcastAccent]) marks
 /// the podcast surfaces so they read as on-demand, different from radio's
 /// live terracotta.
 class PodcastPlayerScreen extends StatefulWidget {
@@ -79,6 +78,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
@@ -161,9 +161,9 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                       child: Text(
                         key: const ValueKey('offline-hint'),
                         "You're offline · Download this episode to listen without internet.",
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.podcastAccent,
+                          color: colors.podcastAccent,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -255,6 +255,7 @@ class _MetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -264,7 +265,7 @@ class _MetaRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Text(
                 '·',
-                style: AppTextStyles.timeLabel.copyWith(color: AppColors.podcastAccent),
+                style: AppTextStyles.timeLabel.copyWith(color: colors.podcastAccent),
               ),
             ),
           Text(pieces[i], style: AppTextStyles.timeLabel),
@@ -289,6 +290,7 @@ class _AboutTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     if (episode.about == null) return const SizedBox.shrink();
     return GestureDetector(
       key: const ValueKey('podcast-about-toggle'),
@@ -296,10 +298,10 @@ class _AboutTile extends StatelessWidget {
       onTap: onToggle,
       child: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
-            top: BorderSide(color: AppColors.hairline),
-            bottom: BorderSide(color: AppColors.hairline),
+            top: BorderSide(color: colors.hairline),
+            bottom: BorderSide(color: colors.hairline),
           ),
         ),
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -313,7 +315,7 @@ class _AboutTile extends StatelessWidget {
                 AnimatedRotation(
                   turns: open ? 0.5 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.expand_more, size: 20, color: AppColors.ink),
+                  child: Icon(Icons.expand_more, size: 20, color: colors.ink),
                 ),
               ],
             ),
@@ -345,13 +347,14 @@ class _TranscriptPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.article_outlined, size: 34, color: AppColors.muted),
+            Icon(Icons.article_outlined, size: 34, color: colors.muted),
             const SizedBox(height: 16),
             const Text(
               'TRANSCRIPT',
@@ -418,8 +421,8 @@ class _PlayerPageSwitch extends StatelessWidget {
   }
 }
 
-/// Primary transport: rewind, the dominant Play/Pause, forward.
-class _PodcastControls extends StatelessWidget {
+/// Primary transport: speed, rewind, the dominant Play/Pause, forward, equalizer settings.
+class _PodcastControls extends StatefulWidget {
   const _PodcastControls({
     required this.playing,
     required this.onPlayPause,
@@ -433,40 +436,113 @@ class _PodcastControls extends StatelessWidget {
   final VoidCallback onForward;
 
   @override
+  State<_PodcastControls> createState() => _PodcastControlsState();
+}
+
+class _PodcastControlsState extends State<_PodcastControls> {
+  static const List<double> _speeds = [1, 1.5, 2];
+  int _speedIndex = 0;
+
+  void _cycleSpeed() {
+    setState(() => _speedIndex = (_speedIndex + 1) % _speeds.length);
+  }
+
+  String _formatSpeed(double speed) {
+    final String text = speed == speed.roundToDouble()
+        ? speed.toInt().toString()
+        : speed.toString();
+    return '${text}x';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              PlayerIconButton(
-                key: const ValueKey('podcast-rewind'),
-                tooltip: 'Rewind 10 seconds',
-                onPressed: onRewind,
-                icon: const Icon(Icons.replay_10, size: 24, color: AppColors.ink),
+        // Playback speed
+        GestureDetector(
+          key: const ValueKey('podcast-speed'),
+          behavior: HitTestBehavior.opaque,
+          onTap: _cycleSpeed,
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: Text(
+                _formatSpeed(_speeds[_speedIndex]),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: colors.ink,
+                ),
               ),
-              const SizedBox(width: 24),
-            ],
+            ),
           ),
         ),
-        PlayPauseButton(
-          key: const ValueKey('podcast-play-pause'),
-          playing: playing,
-          onPressed: onPlayPause,
+
+        // Rewind 10s
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: colors.ink.withValues(alpha: 0.08),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            key: const ValueKey('podcast-rewind'),
+            tooltip: 'Rewind 10 seconds',
+            onPressed: widget.onRewind,
+            icon: Icon(Icons.replay_10, size: 24, color: colors.ink),
+          ),
         ),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              const SizedBox(width: 24),
-              PlayerIconButton(
-                key: const ValueKey('podcast-forward'),
-                tooltip: 'Forward 10 seconds',
-                onPressed: onForward,
-                icon: const Icon(Icons.forward_10, size: 24, color: AppColors.ink),
+
+        // Play/Pause squircle button
+        SizedBox(
+          key: const ValueKey('podcast-play-pause'),
+          width: 88,
+          height: 64,
+          child: Material(
+            borderRadius: BorderRadius.circular(20),
+            color: colors.ink,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: widget.onPlayPause,
+              child: Center(
+                child: Icon(
+                  widget.playing ? Icons.pause : Icons.play_arrow,
+                  key: ValueKey(widget.playing ? 'icon-pause' : 'icon-play'),
+                  size: 32,
+                  color: colors.background,
+                ),
               ),
-            ],
+            ),
+          ),
+        ),
+
+        // Forward 10s
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: colors.ink.withValues(alpha: 0.08),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            key: const ValueKey('podcast-forward'),
+            tooltip: 'Forward 10 seconds',
+            onPressed: widget.onForward,
+            icon: Icon(Icons.forward_10, size: 24, color: colors.ink),
+          ),
+        ),
+
+        // Equalizer settings icon
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: IconButton(
+            icon: Icon(Icons.tune, size: 22, color: colors.ink),
+            onPressed: () {},
           ),
         ),
       ],
@@ -475,7 +551,7 @@ class _PodcastControls extends StatelessWidget {
 }
 
 /// Quiet secondary actions beneath the transport controls: favourite,
-/// download, playback speed, sleep timer, share. Playback-affecting options
+/// download, sleep timer, share. Playback-affecting options
 /// are lightweight UI state only until the audio service grows.
 class _SecondaryActions extends StatefulWidget {
   const _SecondaryActions({
@@ -501,8 +577,6 @@ class _SecondaryActions extends StatefulWidget {
 }
 
 class _SecondaryActionsState extends State<_SecondaryActions> {
-  static const List<double> _speeds = [1, 1.5, 2];
-  int _speedIndex = 0;
   bool _optimisticDownloaded = false;
 
   @override
@@ -519,17 +593,14 @@ class _SecondaryActionsState extends State<_SecondaryActions> {
     }
   }
 
-  void _cycleSpeed() {
-    setState(() => _speedIndex = (_speedIndex + 1) % _speeds.length);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final bool downloaded = widget.downloaded || _optimisticDownloaded;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: AppColors.hairline),
+          top: BorderSide(color: colors.hairline),
         ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
@@ -543,7 +614,7 @@ class _SecondaryActionsState extends State<_SecondaryActions> {
             icon: Icon(
               widget.favourite ? Icons.favorite : Icons.favorite_border,
               size: 21,
-              color: widget.favourite ? AppColors.accent : AppColors.ink,
+              color: widget.favourite ? colors.accent : colors.ink,
             ),
           ),
           PlayerIconButton(
@@ -556,16 +627,7 @@ class _SecondaryActionsState extends State<_SecondaryActions> {
             icon: Icon(
               downloaded ? Icons.download_done : Icons.download_outlined,
               size: 22,
-              color: downloaded ? AppColors.podcastAccent : AppColors.ink,
-            ),
-          ),
-          PlayerIconButton(
-            key: const ValueKey('podcast-speed'),
-            tooltip: 'Playback speed',
-            onPressed: _cycleSpeed,
-            icon: Text(
-              _formatSpeed(_speeds[_speedIndex]),
-              style: AppTextStyles.playerStation.copyWith(fontSize: 12),
+              color: downloaded ? colors.podcastAccent : colors.ink,
             ),
           ),
           PlayerIconButton(
@@ -575,24 +637,17 @@ class _SecondaryActionsState extends State<_SecondaryActions> {
             icon: Icon(
               Icons.bedtime_outlined,
               size: 21,
-              color: widget.sleepActive ? AppColors.podcastAccent : AppColors.ink,
+              color: widget.sleepActive ? colors.podcastAccent : colors.ink,
             ),
           ),
           PlayerIconButton(
             key: const ValueKey('podcast-share'),
             tooltip: 'Share',
             onPressed: widget.onShare,
-            icon: const Icon(Icons.ios_share, size: 21, color: AppColors.ink),
+            icon: Icon(Icons.ios_share, size: 21, color: colors.ink),
           ),
         ],
       ),
     );
-  }
-
-  String _formatSpeed(double speed) {
-    final String text = speed == speed.roundToDouble()
-        ? speed.toInt().toString()
-        : speed.toString();
-    return '${text}x';
   }
 }

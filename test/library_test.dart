@@ -375,10 +375,12 @@ void main() {
         await revealInLibrary(tester, find.byKey(const ValueKey('library-station-Jazz FM')));
         expect(find.byKey(const ValueKey('library-station-Jazz FM')), findsOneWidget);
         expect(find.byKey(const ValueKey('library-saved-show-the-daily')), findsNothing);
+        expect(find.text('CONTINUE LISTENING'), findsNothing);
 
         await resetToTop();
         await tester.tap(find.byKey(const ValueKey('library-filter-all')));
         await tester.pump();
+        expect(find.text('CONTINUE LISTENING'), findsOneWidget);
         await revealInLibrary(tester, find.byKey(const ValueKey('library-saved-show-the-daily')));
         expect(find.byKey(const ValueKey('library-saved-show-the-daily')), findsOneWidget);
         await revealInLibrary(tester, find.byKey(const ValueKey('library-station-Jazz FM')));

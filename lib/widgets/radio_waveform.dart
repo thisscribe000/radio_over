@@ -1,6 +1,5 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
 import '../theme.dart';
 
@@ -55,6 +54,7 @@ class _RadioWaveformState extends State<RadioWaveform>
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         return AnimatedBuilder(
@@ -65,6 +65,7 @@ class _RadioWaveformState extends State<RadioWaveform>
               painter: _WavePainter(
                 phase: _controller.value,
                 active: widget.active,
+                colors: colors,
               ),
             );
           },
@@ -75,10 +76,11 @@ class _RadioWaveformState extends State<RadioWaveform>
 }
 
 class _WavePainter extends CustomPainter {
-  _WavePainter({required this.phase, required this.active});
+  _WavePainter({required this.phase, required this.active, required this.colors});
 
   final double phase;
   final bool active;
+  final AppColors colors;
 
   static const int _barCount = 13;
   static const double _barWidth = 3;
@@ -91,8 +93,8 @@ class _WavePainter extends CustomPainter {
       ..strokeWidth = _barWidth
       ..strokeCap = StrokeCap.round
       ..color = active
-          ? AppColors.accent.withValues(alpha: 0.55)
-          : AppColors.hairline;
+          ? colors.accent.withValues(alpha: 0.55)
+          : colors.hairline;
 
     if (!active) {
       final double lineY = size.height / 2;

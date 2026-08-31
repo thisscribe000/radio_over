@@ -249,6 +249,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// The back button and the prominent bordered search field.
   Widget _buildHeader() {
+    final colors = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       child: Row(
@@ -258,17 +259,17 @@ class _SearchScreenState extends State<SearchScreen> {
             tooltip: 'Back',
             visualDensity: VisualDensity.compact,
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
+            icon: Icon(Icons.arrow_back, size: 22, color: colors.ink),
           ),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.hairline),
+                border: Border.all(color: colors.hairline),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.search, size: 18, color: AppColors.muted),
+                  Icon(Icons.search, size: 18, color: colors.muted),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
@@ -292,7 +293,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       tooltip: 'Clear',
                       visualDensity: VisualDensity.compact,
                       onPressed: _clear,
-                      icon: const Icon(Icons.close, size: 18, color: AppColors.muted),
+                      icon: Icon(Icons.close, size: 18, color: colors.muted),
                     ),
                 ],
               ),
@@ -305,6 +306,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// Empty query: recent searches (removable, clearable) and trending terms.
   Widget _buildDiscovery() {
+    final colors = AppColors.of(context);
     final List<String> recent = _recentSearches.entries;
     return ListView(
       key: const ValueKey('search-discovery'),
@@ -333,7 +335,7 @@ class _SearchScreenState extends State<SearchScreen> {
               onTap: () => _setQuery(term),
               onRemove: () => _recentSearches.remove(term),
             ),
-            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+            Divider(height: 1, thickness: 1, color: colors.hairline),
           ],
           const SizedBox(height: 28),
         ],
@@ -357,6 +359,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// Grouped active results: one top result, then per-type sections.
   Widget _buildResults() {
+    final colors = AppColors.of(context);
     return ListView(
       key: const ValueKey('search-results'),
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
@@ -378,7 +381,7 @@ class _SearchScreenState extends State<SearchScreen> {
               controller: controller,
               onTap: () => _onResultTap(result),
             ),
-            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+            Divider(height: 1, thickness: 1, color: colors.hairline),
           ],
           const SizedBox(height: 24),
         ],
@@ -391,7 +394,7 @@ class _SearchScreenState extends State<SearchScreen> {
               controller: controller,
               onTap: () => _onResultTap(result),
             ),
-            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+            Divider(height: 1, thickness: 1, color: colors.hairline),
           ],
           const SizedBox(height: 24),
         ],
@@ -404,7 +407,7 @@ class _SearchScreenState extends State<SearchScreen> {
               controller: controller,
               onTap: () => _onResultTap(result),
             ),
-            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+            Divider(height: 1, thickness: 1, color: colors.hairline),
           ],
         ],
       ],
@@ -498,6 +501,7 @@ class _RecentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey('search-recent-$term'),
       behavior: HitTestBehavior.opaque,
@@ -513,9 +517,9 @@ class _RecentRow extends StatelessWidget {
               key: ValueKey('search-recent-remove-$term'),
               behavior: HitTestBehavior.opaque,
               onTap: onRemove,
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(6),
-                child: Icon(Icons.close, size: 16, color: AppColors.muted),
+                child: Icon(Icons.close, size: 16, color: colors.muted),
               ),
             ),
           ],
@@ -535,13 +539,14 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.hairline),
+          border: Border.all(color: colors.hairline),
         ),
         child: Text(label, style: AppTextStyles.sectionLabel),
       ),
@@ -567,6 +572,7 @@ class _TopResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final bool isStation = result.type == SearchResultType.radioStation;
     final bool playing = isStation &&
         controller.radioActive &&
@@ -580,7 +586,7 @@ class _TopResultCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.hairline),
+          border: Border.all(color: colors.hairline),
         ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
         child: Column(
@@ -616,7 +622,7 @@ class _TopResultCard extends StatelessWidget {
                 const Spacer(),
                 _PlayCircle(
                   playing: playing,
-                  accent: isStation ? AppColors.accent : AppColors.podcastAccent,
+                  accent: isStation ? colors.accent : colors.podcastAccent,
                   size: 40,
                   onPressed: onTap,
                 ),
@@ -685,14 +691,15 @@ class _ResultRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            _buildTrailing(active),
+            _buildTrailing(context, active),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTrailing(bool active) {
+  Widget _buildTrailing(BuildContext context, bool active) {
+    final colors = AppColors.of(context);
     switch (result) {
       case StationResult():
         return Row(
@@ -704,7 +711,7 @@ class _ResultRow extends StatelessWidget {
             ],
             _PlayCircle(
               playing: active && controller.isPlaying,
-              accent: AppColors.accent,
+              accent: colors.accent,
               size: 32,
               onPressed: onTap,
             ),
@@ -713,7 +720,7 @@ class _ResultRow extends StatelessWidget {
       case PodcastResult():
         return _PlayCircle(
           playing: false,
-          accent: AppColors.podcastAccent,
+          accent: colors.podcastAccent,
           size: 32,
           onPressed: onTap,
         );
@@ -741,6 +748,7 @@ class _EpisodeStateLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final bool active =
         controller.podcastActive && controller.currentEpisode?.id == episode.id;
     final Duration position = active ? controller.podcastPosition : episode.position;
@@ -754,7 +762,7 @@ class _EpisodeStateLine extends StatelessWidget {
           ? Row(
               key: ValueKey('search-episode-played-${episode.id}'),
               children: [
-                const Icon(Icons.check_circle_outline, size: 13, color: AppColors.muted),
+                Icon(Icons.check_circle_outline, size: 13, color: colors.muted),
                 const SizedBox(width: 6),
                 const Text('PLAYED', style: AppTextStyles.timeLabel),
               ],
@@ -765,14 +773,14 @@ class _EpisodeStateLine extends StatelessWidget {
               child: SizedBox(
                 height: 2,
                 child: ColoredBox(
-                  color: AppColors.hairline,
+                  color: colors.hairline,
                   child: FractionallySizedBox(
                     alignment: Alignment.centerLeft,
                     widthFactor: episode.duration.inMilliseconds == 0
                         ? 0
                         : (position.inMilliseconds / episode.duration.inMilliseconds)
                             .clamp(0.0, 1.0),
-                    child: const ColoredBox(color: AppColors.podcastAccent),
+                    child: ColoredBox(color: colors.podcastAccent),
                   ),
                 ),
               ),
@@ -790,6 +798,7 @@ class _ResultArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     if (result is StationResult) {
       return Container(
         width: size,
@@ -797,7 +806,7 @@ class _ResultArtwork extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.hairline),
+          border: Border.all(color: colors.hairline),
         ),
         child: Text(
           _initials(result.artworkTitle),
@@ -832,6 +841,7 @@ class _PlayCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onPressed,
@@ -846,7 +856,7 @@ class _PlayCircle extends StatelessWidget {
           child: Icon(
             playing ? Icons.pause : Icons.play_arrow,
             size: size * 0.56,
-            color: AppColors.background,
+            color: colors.background,
           ),
         ),
       ),

@@ -188,6 +188,7 @@ void main() {
       await runPodcastTest(tester, (tester, controller) async {
         await switchToPodcasts(tester);
 
+        await revealInPodcasts(tester, find.byKey(const ValueKey('podcast-featured')));
         await tester.tap(find.byKey(const ValueKey('podcast-featured')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));

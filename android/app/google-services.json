@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "201441769052",
+    "project_id": "radio-over-lw-a7008",
+    "storage_bucket": "radio-over-lw-a7008.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:201441769052:android:29a21fff9dd02689c4d899",
+        "android_client_info": {
+          "package_name": "com.radioover.radio_over"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCv3QnSCp0QmexlP3sPXgc5ycXFnkNDNw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

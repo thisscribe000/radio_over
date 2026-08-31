@@ -10,6 +10,7 @@ import '../screens/podcast_player_screen.dart';
 import '../screens/downloads_screen.dart';
 import '../screens/station_detail_screen.dart';
 import '../screens/history_screen.dart';
+import '../screens/user_profile_screen.dart';
 import '../theme.dart';
 import '../utils/format.dart';
 import '../widgets/active_dot.dart';
@@ -212,6 +213,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       MaterialPageRoute<void>(
         builder: (_) => HistoryScreen(
           controller: controller,
+          content: _content,
           onExploreAudio: widget.onExploreAudio,
         ),
       ),
@@ -222,6 +224,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => DownloadsScreen(controller: controller, content: _content),
+      ),
+    );
+  }
+
+  void _openProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => UserProfileScreen(controller: controller, content: _content),
       ),
     );
   }
@@ -255,20 +265,33 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- Header --------------------------------------------------------------
 
   Widget _buildHeader() {
+    final colors = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 30, 24, 0),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'LIBRARY',
-            key: const ValueKey('library-title'),
-            style: AppTextStyles.display,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+
+                const SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: Text('LIBRARY', key: ValueKey('library-title')),
+                ),
+                const Text(
+                  'Your saved audio, in one place.',
+                  style: AppTextStyles.stationName,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Your saved audio, in one place.',
-            style: AppTextStyles.stationName,
+          IconButton(
+            key: const ValueKey('library-profile-button'),
+            icon: Icon(Icons.account_circle_outlined, size: 28, color: colors.ink),
+            onPressed: _openProfile,
           ),
         ],
       ),
@@ -328,12 +351,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- Body ----------------------------------------------------------------
 
   Widget _buildBody() {
+    final bool radioOnly = _filter == _LibraryFilter.radio;
     final List<Widget> children = [
       _buildFilters(),
-      const SizedBox(height: 26),
-      const Text('CONTINUE LISTENING', style: AppTextStyles.sectionLabel),
-      const SizedBox(height: 12),
-      _buildContinue(),
+      if (!radioOnly) ...[
+        const SizedBox(height: 26),
+        const Text('CONTINUE LISTENING', style: AppTextStyles.sectionLabel),
+        const SizedBox(height: 12),
+        _buildContinue(),
+      ],
     ];
     if (_isEmptyLibrary && _filter == _LibraryFilter.all) {
       children.addAll([
@@ -399,6 +425,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- 1. CONTINUE LISTENING -----------------------------------------------
 
   Widget _buildContinue() {
+    final colors = AppColors.of(context);
     final List<PodcastEpisode> inProgress = _inProgress();
     if (inProgress.isEmpty) {
       return const _QuietEmpty(
@@ -415,7 +442,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             controller: controller,
             onTap: () => _playEpisode(episode),
           ),
-          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          Divider(height: 1, thickness: 1, color: colors.hairline),
         ],
       ],
     );
@@ -424,6 +451,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- 2. SAVED CONTENT ----------------------------------------------------
 
   Widget _buildSavedShows() {
+    final colors = AppColors.of(context);
     final List<PodcastSeries> shows = _savedShows;
     if (shows.isEmpty) {
       return const _QuietEmpty(
@@ -436,13 +464,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
       children: [
         for (final PodcastSeries show in shows) ...[
           _SavedShowRow(show: show, onTap: () => _openShow(show)),
-          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          Divider(height: 1, thickness: 1, color: colors.hairline),
         ],
       ],
     );
   }
 
   Widget _buildSavedEpisodes() {
+    final colors = AppColors.of(context);
     final List<PodcastEpisode> episodes = _savedEpisodes;
     if (episodes.isEmpty) {
       return const _QuietEmpty(
@@ -459,7 +488,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             controller: controller,
             onTap: () => _playEpisode(episode),
           ),
-          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          Divider(height: 1, thickness: 1, color: colors.hairline),
         ],
       ],
     );
@@ -468,6 +497,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- 3. FAVOURITE STATIONS ------------------------------------------------
 
   Widget _buildFavouriteStations() {
+    final colors = AppColors.of(context);
     final List<RadioStation> stations = _favouriteStations;
     if (stations.isEmpty) {
       return const _QuietEmpty(
@@ -485,7 +515,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             onTap: () => _openStation(station),
             onPlay: () => _playStation(station),
           ),
-          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          Divider(height: 1, thickness: 1, color: colors.hairline),
         ],
       ],
     );
@@ -494,6 +524,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- 4. DOWNLOADS ----------------------------------------------------------
 
   Widget _buildDownloadsSection() {
+    final colors = AppColors.of(context);
     final int count = _downloaded.length;
     final String subtitle = count == 0
         ? 'Nothing downloaded yet'
@@ -508,7 +539,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               children: [
-                const Icon(Icons.download_outlined, size: 20, color: AppColors.muted),
+                Icon(Icons.download_outlined, size: 20, color: colors.muted),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -520,12 +551,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, size: 20, color: AppColors.muted),
+                Icon(Icons.chevron_right, size: 20, color: colors.muted),
               ],
             ),
           ),
         ),
-        const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        Divider(height: 1, thickness: 1, color: colors.hairline),
       ],
     );
   }
@@ -533,6 +564,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- 5. HISTORY ------------------------------------------------------------
 
   Widget _buildHistorySection() {
+    final colors = AppColors.of(context);
     final int count = controller.listeningHistory.length;
     final String subtitle = count == 0
         ? 'Nothing listened to yet'
@@ -547,7 +579,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               children: [
-                const Icon(Icons.history, size: 20, color: AppColors.muted),
+                Icon(Icons.history, size: 20, color: colors.muted),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -559,12 +591,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, size: 20, color: AppColors.muted),
+                Icon(Icons.chevron_right, size: 20, color: colors.muted),
               ],
             ),
           ),
         ),
-        const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        Divider(height: 1, thickness: 1, color: colors.hairline),
       ],
     );
   }
@@ -572,6 +604,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- 6. RECENTLY PLAYED ----------------------------------------------------
 
   Widget _buildRecent(List<ListenRecord> recent) {
+    final colors = AppColors.of(context);
     return Column(
       children: [
         for (final ListenRecord record in recent.take(6)) ...[
@@ -588,7 +621,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               playedAt: record.playedAt,
               onTap: () => _playEpisode(record.episode!),
             ),
-          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          Divider(height: 1, thickness: 1, color: colors.hairline),
         ],
       ],
     );
@@ -597,18 +630,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- Empty hero -------------------------------------------------------------
 
   Widget _buildEmptyHero() {
+    final colors = AppColors.of(context);
     return Container(
       key: const ValueKey('library-empty'),
       width: double.infinity,
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: colors.hairline),
       ),
       padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 20),
       child: Column(
         children: [
-          const Text(
+          Text(
             'Your library is empty',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.ink),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.ink),
           ),
           const SizedBox(height: 8),
           Text(
@@ -624,7 +658,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 13),
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.ink),
+                border: Border.all(color: colors.ink),
               ),
               child: const Text('EXPLORE AUDIO', style: AppTextStyles.navLabel),
             ),
@@ -637,6 +671,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // --- Filters ------------------------------------------------------------
 
   Widget _buildFilters() {
+    final colors = AppColors.of(context);
     return Row(
       children: [
         _FilterChip(
@@ -660,7 +695,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           onTap: () => setState(() => _filter = _LibraryFilter.radio),
         ),
         const Spacer(),
-        const Icon(Icons.collections_bookmark_outlined, size: 16, color: AppColors.muted),
+        Icon(Icons.collections_bookmark_outlined, size: 16, color: colors.muted),
       ],
     );
   }
@@ -683,13 +718,14 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: selected ? AppColors.ink : AppColors.hairline),
+          border: Border.all(color: selected ? colors.ink : colors.hairline),
         ),
         child: Text(
           label,
@@ -709,17 +745,18 @@ class _QuietEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: colors.hairline),
       ),
       padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
       child: Column(
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.ink),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.ink),
           ),
           const SizedBox(height: 6),
           Text(
@@ -816,6 +853,7 @@ class _SavedShowRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey('library-saved-show-${show.id}'),
       behavior: HitTestBehavior.opaque,
@@ -839,7 +877,7 @@ class _SavedShowRow extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 20, color: AppColors.muted),
+            Icon(Icons.chevron_right, size: 20, color: colors.muted),
           ],
         ),
       ),
@@ -861,6 +899,7 @@ class _SavedEpisodeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final bool active = controller.podcastActive && controller.currentEpisode?.id == episode.id;
     final Duration position = active
         ? controller.podcastPosition
@@ -900,7 +939,7 @@ class _SavedEpisodeRow extends StatelessWidget {
                       ),
                       if (completed) ...[
                         const SizedBox(width: 8),
-                        const Icon(Icons.check_circle_outline, size: 12, color: AppColors.muted),
+                        Icon(Icons.check_circle_outline, size: 12, color: colors.muted),
                         const SizedBox(width: 4),
                         const Text('PLAYED', style: AppTextStyles.timeLabel),
                       ],
@@ -1146,13 +1185,14 @@ class _Monogram extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: colors.hairline),
       ),
       child: Text(_initials, style: AppTextStyles.playerStation),
     );
@@ -1167,16 +1207,17 @@ class _ProgressLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(1),
       child: SizedBox(
         height: 2,
         child: ColoredBox(
-          color: AppColors.hairline,
+          color: colors.hairline,
           child: FractionallySizedBox(
             alignment: Alignment.centerLeft,
             widthFactor: fraction,
-            child: const ColoredBox(color: AppColors.podcastAccent),
+            child: ColoredBox(color: colors.podcastAccent),
           ),
         ),
       ),
@@ -1192,13 +1233,14 @@ class _PodcastPlayCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return SizedBox(
       width: size,
       height: size,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.podcastAccent,
+          color: colors.podcastAccent,
         ),
         child: Center(
           child: Padding(
@@ -1206,7 +1248,7 @@ class _PodcastPlayCircle extends StatelessWidget {
             child: Icon(
               Icons.play_arrow,
               size: size * 0.58,
-              color: AppColors.background,
+              color: colors.background,
             ),
           ),
         ),
@@ -1224,9 +1266,10 @@ class _RadioPlayCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Material(
       shape: const CircleBorder(),
-      color: AppColors.accent,
+      color: colors.accent,
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onPressed,
@@ -1237,7 +1280,7 @@ class _RadioPlayCircle extends StatelessWidget {
             child: Icon(
               playing ? Icons.pause : Icons.play_arrow,
               size: 20,
-              color: AppColors.background,
+              color: colors.background,
             ),
           ),
         ),

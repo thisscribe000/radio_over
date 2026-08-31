@@ -15,10 +15,11 @@ class NowPlayingInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: AppColors.hairline),
+          top: BorderSide(color: colors.hairline),
         ),
       ),
       padding: const EdgeInsets.only(top: 18, bottom: 10),

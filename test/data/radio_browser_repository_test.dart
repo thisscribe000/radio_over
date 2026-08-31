@@ -47,9 +47,9 @@ void main() {
       expect(station.tags, ['jazz', 'news', 'london']);
     });
 
-    test('switches an http stream URL to https when the feed is https', () {
+    test('preserves http stream URL even when the feed is flagged as https', () {
       final RadioStation station = radioBrowserStationFromJson(_stationJson());
-      expect(station.streamUrl, 'https://listen.jazz.fm/stream');
+      expect(station.streamUrl, 'http://listen.jazz.fm/stream');
       expect(station.logoUrl, 'https://jazz.fm/favicon.png');
     });
 

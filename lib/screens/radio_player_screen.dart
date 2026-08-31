@@ -243,6 +243,7 @@ class _RadioControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Row(
@@ -255,10 +256,10 @@ class _RadioControls extends StatelessWidget {
                 key: const ValueKey('player-previous'),
                 tooltip: 'Previous station',
                 onPressed: onPrevious,
-                icon: const Icon(
+                icon: Icon(
                   Icons.navigate_before,
                   size: 28,
-                  color: AppColors.ink,
+                  color: colors.ink,
                 ),
               ),
             ],
@@ -275,10 +276,10 @@ class _RadioControls extends StatelessWidget {
                 key: const ValueKey('player-next'),
                 tooltip: 'Next station',
                 onPressed: onNext,
-                icon: const Icon(
+                icon: Icon(
                   Icons.navigate_next,
                   size: 28,
-                  color: AppColors.ink,
+                  color: colors.ink,
                 ),
               ),
             ],
@@ -306,9 +307,10 @@ class _RadioSecondaryActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.hairline)),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.hairline)),
       ),
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       child: Row(
@@ -321,14 +323,14 @@ class _RadioSecondaryActions extends StatelessWidget {
             icon: Icon(
               favourite ? Icons.favorite : Icons.favorite_border,
               size: 22,
-              color: favourite ? AppColors.accent : AppColors.ink,
+              color: favourite ? colors.accent : colors.ink,
             ),
           ),
           PlayerIconButton(
             key: const ValueKey('player-share'),
             tooltip: 'Share',
             onPressed: onShare,
-            icon: const Icon(Icons.ios_share, size: 22, color: AppColors.ink),
+            icon: Icon(Icons.ios_share, size: 22, color: colors.ink),
           ),
           PlayerIconButton(
             key: const ValueKey('player-sleep'),
@@ -337,7 +339,7 @@ class _RadioSecondaryActions extends StatelessWidget {
             icon: Icon(
               Icons.bedtime_outlined,
               size: 22,
-              color: sleepActive ? AppColors.accent : AppColors.ink,
+              color: sleepActive ? colors.accent : colors.ink,
             ),
           ),
         ],

@@ -32,13 +32,14 @@ class PodcastChapters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final List<PodcastChapter> chapters = episode.chapters;
     final int active = _activeIndex;
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 4),
       itemCount: chapters.length,
       separatorBuilder: (_, _) =>
-          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          Divider(height: 1, thickness: 1, color: colors.hairline),
       itemBuilder: (context, index) {
         final PodcastChapter chapter = chapters[index];
         final bool current = index == active;
@@ -56,17 +57,17 @@ class PodcastChapters extends StatelessWidget {
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOut,
                     style: current
-                        ? const TextStyle(
+                        ? TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                             height: 1.25,
-                            color: AppColors.ink,
+                            color: colors.ink,
                           )
-                        : const TextStyle(
+                        : TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w400,
                             height: 1.3,
-                            color: AppColors.muted,
+                            color: colors.muted,
                           ),
                     child: Text(chapter.title),
                   ),
@@ -77,7 +78,7 @@ class PodcastChapters extends StatelessWidget {
                   child: Text(
                     formatDuration(chapter.start),
                     style: AppTextStyles.timeLabel.copyWith(
-                      color: current ? AppColors.podcastAccent : AppColors.muted,
+                      color: current ? colors.podcastAccent : colors.muted,
                     ),
                     textAlign: TextAlign.right,
                   ),

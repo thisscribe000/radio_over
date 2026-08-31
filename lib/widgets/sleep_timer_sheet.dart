@@ -23,9 +23,10 @@ class SleepTimerSheet extends StatelessWidget {
     required PlaybackController controller,
     required bool showEndOfEpisode,
   }) {
+    final colors = AppColors.of(context);
     return showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       builder: (_) => SleepTimerSheet(
         controller: controller,
         showEndOfEpisode: showEndOfEpisode,
@@ -97,11 +98,12 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 22, 24, 14),
       child: Row(
         children: [
-          const Icon(Icons.bedtime_outlined, size: 18, color: AppColors.muted),
+          Icon(Icons.bedtime_outlined, size: 18, color: colors.muted),
           const SizedBox(width: 10),
           Text(
             sleepActive ? 'SLEEP TIMER · ACTIVE' : 'SLEEP TIMER',
@@ -121,12 +123,13 @@ class _Option extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return InkWell(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.hairline)),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: colors.hairline)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
         child: Text(label, style: AppTextStyles.navLabel),

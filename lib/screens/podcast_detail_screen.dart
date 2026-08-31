@@ -13,6 +13,8 @@ import '../utils/format.dart';
 import '../widgets/podcast_art.dart';
 import '../widgets/podcast_mini_player.dart';
 import '../widgets/radio_mini_player.dart';
+import '../widgets/pencil_line_shimmer.dart';
+import 'creator_profile_screen.dart';
 
 /// The Podcast Detail / Show screen.
 ///
@@ -144,6 +146,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final PodcastSeries show = _show;
     return Scaffold(
       body: SafeArea(
@@ -161,7 +164,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                       tooltip: 'Back',
                       visualDensity: VisualDensity.compact,
                       onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
+                      icon: Icon(Icons.arrow_back, size: 22, color: colors.ink),
                     ),
                     const Expanded(
                       child: Center(child: Text('PODCAST', style: AppTextStyles.navLabel)),
@@ -171,7 +174,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                       tooltip: 'Share',
                       visualDensity: VisualDensity.compact,
                       onPressed: () {},
-                      icon: const Icon(Icons.ios_share, size: 20, color: AppColors.muted),
+                      icon: Icon(Icons.ios_share, size: 20, color: colors.muted),
                     ),
                   ],
                 ),
@@ -189,15 +192,18 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                       const SizedBox(height: 28),
                       _buildEpisodeHeading(),
                       const SizedBox(height: 6),
-                      for (final PodcastEpisode episode in _episodes(show)) ...[
-                        _DetailEpisodeRow(
-                          episode: episode,
-                          controller: controller,
-                          onStart: () => _startEpisode(episode),
-                          onOpen: () => _openEpisode(episode),
-                        ),
-                        const Divider(height: 1, thickness: 1, color: AppColors.hairline),
-                      ],
+                      if (show.episodes.isEmpty)
+                        const EditorialEpisodeListShimmer()
+                      else
+                        for (final PodcastEpisode episode in _episodes(show)) ...[
+                          _DetailEpisodeRow(
+                            episode: episode,
+                            controller: controller,
+                            onStart: () => _startEpisode(episode),
+                            onOpen: () => _openEpisode(episode),
+                          ),
+                          Divider(height: 1, thickness: 1, color: colors.hairline),
+                        ],
                       const SizedBox(height: 28),
                       _buildAbout(show),
                       const SizedBox(height: 28),
@@ -223,6 +229,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
   // --- Show header ---------------------------------------------------------
 
   Widget _buildHeader(PodcastSeries show) {
+    final colors = AppColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -237,7 +244,27 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                 children: [
                   Text(show.name.toUpperCase(), style: AppTextStyles.playerStation),
                   const SizedBox(height: 6),
-                  Text(show.publisher, style: AppTextStyles.stationProgramme),
+                  GestureDetector(
+                    key: const ValueKey('podcast-detail-publisher'),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => CreatorProfileScreen(
+                            creatorName: show.publisher,
+                            controller: controller,
+                            content: _content,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      show.publisher,
+                      style: AppTextStyles.stationProgramme.copyWith(
+                        decoration: TextDecoration.underline,
+                        decorationColor: colors.muted.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Text(show.category.toUpperCase(), style: AppTextStyles.sectionLabel),
                 ],
@@ -264,6 +291,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
   /// refreshed, or a gentle error/retry hint. Absent until there is something
   /// worth saying — no clutter on first sight.
   Widget _buildRefreshStatusLine(PodcastSeries show) {
+    final colors = AppColors.of(context);
     final FeedRefreshResult? result = _lastResult;
     final String? line;
     if (result != null && result.status == FeedRefreshStatus.networkError) {
@@ -278,7 +306,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
     return Padding(
       key: const ValueKey('detail-refresh-status'),
       padding: const EdgeInsets.only(top: 10),
-      child: Text(line, style: AppTextStyles.timeLabel.copyWith(color: AppColors.muted)),
+      child: Text(line, style: AppTextStyles.timeLabel.copyWith(color: colors.muted)),
     );
   }
 
@@ -295,12 +323,13 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
   }
 
   Widget _buildAbout(PodcastSeries show) {
+    final colors = AppColors.of(context);
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: AppColors.hairline),
-          bottom: BorderSide(color: AppColors.hairline),
+          top: BorderSide(color: colors.hairline),
+          bottom: BorderSide(color: colors.hairline),
         ),
       ),
       child: GestureDetector(
@@ -319,7 +348,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                   AnimatedRotation(
                     turns: _aboutOpen ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.expand_more, size: 20, color: AppColors.ink),
+                    child: Icon(Icons.expand_more, size: 20, color: colors.ink),
                   ),
                 ],
               ),
@@ -339,9 +368,9 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                             ),
                             const SizedBox(height: 14),
                             _AboutRow(label: 'PUBLISHED BY', value: show.publisher),
-                            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+                            Divider(height: 1, thickness: 1, color: colors.hairline),
                             _AboutRow(label: 'RELEASES', value: show.frequency ?? '—'),
-                            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+                            Divider(height: 1, thickness: 1, color: colors.hairline),
                             _AboutRow(label: 'CATEGORY', value: show.category),
                           ],
                         ),
@@ -460,6 +489,7 @@ class _FollowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: const ValueKey('detail-follow'),
       behavior: HitTestBehavior.opaque,
@@ -468,8 +498,8 @@ class _FollowButton extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: following ? AppColors.ink : Colors.transparent,
-          border: Border.all(color: following ? AppColors.ink : AppColors.hairline),
+          color: following ? colors.ink : Colors.transparent,
+          border: Border.all(color: following ? colors.ink : colors.hairline),
         ),
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Center(
@@ -479,14 +509,14 @@ class _FollowButton extends StatelessWidget {
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 child: following
-                    ? const Icon(Icons.check, size: 15, color: AppColors.background, key: ValueKey('follow-check'))
-                    : const Icon(Icons.add, size: 15, color: AppColors.ink, key: ValueKey('follow-add')),
+                    ? Icon(Icons.check, size: 15, color: colors.background, key: ValueKey('follow-check'))
+                    : Icon(Icons.add, size: 15, color: colors.ink, key: ValueKey('follow-add')),
               ),
               const SizedBox(width: 8),
               Text(
                 following ? 'SAVED' : 'FOLLOW',
                 style: following
-                    ? AppTextStyles.playerStation.copyWith(color: AppColors.background)
+                    ? AppTextStyles.playerStation.copyWith(color: colors.background)
                     : AppTextStyles.navLabel,
               ),
             ],
@@ -555,6 +585,7 @@ class _DetailEpisodeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final bool active =
         controller.podcastActive && controller.currentEpisode?.id == episode.id;
     final Duration position = active ? controller.podcastPosition : episode.position;
@@ -586,9 +617,9 @@ class _DetailEpisodeRow extends StatelessWidget {
                             key: ValueKey('detail-active-${episode.id}'),
                             width: 7,
                             height: 7,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: AppColors.podcastAccent,
+                              color: colors.podcastAccent,
                             ),
                           ),
                         ),
@@ -634,14 +665,14 @@ class _DetailEpisodeRow extends StatelessWidget {
                       child: SizedBox(
                         height: 2,
                         child: ColoredBox(
-                          color: AppColors.hairline,
+                          color: colors.hairline,
                           child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,
                             widthFactor: episode.duration <= Duration.zero
                                 ? 0
                                 : (position.inMilliseconds / episode.duration.inMilliseconds)
                                     .clamp(0.0, 1.0),
-                            child: const ColoredBox(color: AppColors.podcastAccent),
+                            child: ColoredBox(color: colors.podcastAccent),
                           ),
                         ),
                       ),
@@ -651,7 +682,7 @@ class _DetailEpisodeRow extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.check_circle_outline, size: 13, color: AppColors.muted),
+                        Icon(Icons.check_circle_outline, size: 13, color: colors.muted),
                         const SizedBox(width: 6),
                         const Text('PLAYED', style: AppTextStyles.timeLabel),
                       ],
@@ -686,13 +717,14 @@ class _NewBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       key: ValueKey('detail-new-$episodeId'),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(border: Border.all(color: AppColors.podcastAccent)),
+      decoration: BoxDecoration(border: Border.all(color: colors.podcastAccent)),
       child: Text(
         'NEW',
-        style: AppTextStyles.timeLabel.copyWith(color: AppColors.podcastAccent),
+        style: AppTextStyles.timeLabel.copyWith(color: colors.podcastAccent),
       ),
     );
   }
@@ -706,18 +738,19 @@ class _PlayCircle extends StatelessWidget {  const _PlayCircle({this.playing = f
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       width: 32,
       height: 32,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.podcastAccent,
+        color: colors.podcastAccent,
       ),
       child: Center(
         child: Icon(
           playing ? Icons.pause : Icons.play_arrow,
           size: 18,
-          color: AppColors.background,
+          color: colors.background,
         ),
       ),
     );
@@ -764,6 +797,7 @@ class _RelatedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey('related-${show.id}'),
       behavior: HitTestBehavior.opaque,
@@ -771,7 +805,7 @@ class _RelatedCard extends StatelessWidget {
       child: Container(
         width: 148,
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.hairline),
+          border: Border.all(color: colors.hairline),
         ),
         padding: const EdgeInsets.all(12),
         child: Column(

@@ -22,6 +22,7 @@ class DownloadsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -36,7 +37,7 @@ class DownloadsScreen extends StatelessWidget {
                     tooltip: 'Back',
                     visualDensity: VisualDensity.compact,
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
+                    icon: Icon(Icons.arrow_back, size: 22, color: colors.ink),
                   ),
                   const Expanded(
                     child: Center(child: Text('DOWNLOADS', style: AppTextStyles.navLabel)),
@@ -78,18 +79,18 @@ class DownloadsScreen extends StatelessWidget {
                         margin: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.hairline),
+                          border: Border.all(color: colors.hairline),
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 20),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
+                          children: [
                             Text(
                               'No downloads yet',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
-                                color: AppColors.ink,
+                                color: colors.ink,
                               ),
                             ),
                             SizedBox(height: 8),
@@ -107,10 +108,10 @@ class DownloadsScreen extends StatelessWidget {
                     key: const ValueKey('downloads-list'),
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
                     itemCount: items.length,
-                    separatorBuilder: (_, _) => const Divider(
+                    separatorBuilder: (_, _) => Divider(
                       height: 1,
                       thickness: 1,
-                      color: AppColors.hairline,
+                      color: colors.hairline,
                     ),
                     itemBuilder: (context, index) =>
                         _DownloadRow(item: items[index], controller: controller, content: content),
@@ -142,6 +143,7 @@ class _DownloadRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final DownloadStatus status = item.status;
     return Padding(
       key: ValueKey('download-row-${item.episodeId}'),
@@ -200,7 +202,7 @@ class _DownloadRow extends StatelessWidget {
           else if (status == DownloadStatus.failed)
             Text(
               item.error ?? 'Download failed',
-              style: const TextStyle(fontSize: 12, color: AppColors.podcastAccent),
+              style: TextStyle(fontSize: 12, color: colors.podcastAccent),
             )
           else if (status == DownloadStatus.completed)
             Text(
@@ -247,10 +249,10 @@ class _Actions extends StatelessWidget {
   final VoidCallback onRemove;
   final String episodeId;
 
-  Widget _icon(IconData icon, String key, VoidCallback onTap, {Color? color}) {
+  Widget _icon(AppColors colors, IconData icon, String key, VoidCallback onTap, {Color? color}) {
     return IconButton(
       key: ValueKey(key),
-      icon: Icon(icon, size: 20, color: color ?? AppColors.ink),
+      icon: Icon(icon, size: 20, color: color ?? colors.ink),
       visualDensity: VisualDensity.compact,
       onPressed: onTap,
     );
@@ -258,14 +260,15 @@ class _Actions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     switch (status) {
       case DownloadStatus.completed:
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (canPlay) _icon(Icons.play_arrow, 'download-play-$episodeId', onPlay),
-            _icon(Icons.delete_outline, 'download-remove-$episodeId', onRemove,
-                color: AppColors.muted),
+            if (canPlay) _icon(colors, Icons.play_arrow, 'download-play-$episodeId', onPlay),
+            _icon(colors, Icons.delete_outline, 'download-remove-$episodeId', onRemove,
+                color: colors.muted),
           ],
         );
       case DownloadStatus.queued:
@@ -273,29 +276,29 @@ class _Actions extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _icon(Icons.pause, 'download-pause-$episodeId', onPause),
-            _icon(Icons.close, 'download-cancel-$episodeId', onCancel,
-                color: AppColors.muted),
+            _icon(colors, Icons.pause, 'download-pause-$episodeId', onPause),
+            _icon(colors, Icons.close, 'download-cancel-$episodeId', onCancel,
+                color: colors.muted),
           ],
         );
       case DownloadStatus.paused:
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _icon(Icons.play_arrow, 'download-resume-$episodeId', onResume,
-                color: AppColors.podcastAccent),
-            _icon(Icons.close, 'download-cancel-$episodeId', onCancel,
-                color: AppColors.muted),
+            _icon(colors, Icons.play_arrow, 'download-resume-$episodeId', onResume,
+                color: colors.podcastAccent),
+            _icon(colors, Icons.close, 'download-cancel-$episodeId', onCancel,
+                color: colors.muted),
           ],
         );
       case DownloadStatus.failed:
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _icon(Icons.refresh, 'download-retry-$episodeId', onRetry,
-                color: AppColors.podcastAccent),
-            _icon(Icons.delete_outline, 'download-remove-$episodeId', onRemove,
-                color: AppColors.muted),
+            _icon(colors, Icons.refresh, 'download-retry-$episodeId', onRetry,
+                color: colors.podcastAccent),
+            _icon(colors, Icons.delete_outline, 'download-remove-$episodeId', onRemove,
+                color: colors.muted),
           ],
         );
       case DownloadStatus.cancelled:

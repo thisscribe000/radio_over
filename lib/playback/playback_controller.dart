@@ -1,18 +1,21 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../data/downloads/download_manager.dart';
 import '../data/downloads/download_store.dart';
 import '../data/favourites/favourite_station_store.dart';
 import '../data/library/library_store.dart';
 import '../data/progress/playback_progress_store.dart';
+import '../data/theme/theme_store.dart';
+import '../data/profile/user_profile_store.dart';
 import '../models/download.dart';
 import '../models/playback.dart';
 import '../models/playback_progress.dart';
 import '../models/podcast_episode.dart';
 import '../models/station.dart';
+import '../models/user_profile.dart';
 import 'audio_engine.dart';
 
 /// Single source of truth for what is currently playing.
@@ -56,6 +59,12 @@ class PlaybackController extends ChangeNotifier {
   /// restarts. Defaults to memory-only.
   final PlaybackProgressStore _progressStore;
 
+  /// Persists the active theme mode.
+  final ThemeStore _themeStore;
+
+  /// Persists user profile settings.
+  final UserProfileStore _profileStore;
+
   /// Cap on how often playback progress is written to storage. Position is
   /// held in memory every tick (so Continue Listening stays live); the store
   /// is only written this frequently to avoid hammering disk each second.
@@ -73,6 +82,8 @@ class PlaybackController extends ChangeNotifier {
     FavouriteStationStore? favouriteStore,
     LibraryStore? libraryStore,
     PlaybackProgressStore? progressStore,
+    ThemeStore? themeStore,
+    UserProfileStore? profileStore,
     DownloadManager? downloads,
     Duration? progressPersistInterval,
     this.radioRetryDelay = const Duration(seconds: 2),
@@ -81,6 +92,8 @@ class PlaybackController extends ChangeNotifier {
         _favouriteStore = favouriteStore ?? InMemoryFavouriteStationStore(),
         _libraryStore = libraryStore ?? InMemoryLibraryStore(),
         _progressStore = progressStore ?? InMemoryPlaybackProgressStore(),
+        _themeStore = themeStore ?? InMemoryThemeStore(),
+        _profileStore = profileStore ?? InMemoryUserProfileStore(),
         downloads = downloads ??
             DownloadManager(
               store: InMemoryDownloadStore(),
@@ -105,6 +118,78 @@ class PlaybackController extends ChangeNotifier {
   RadioStation? _currentStation;
   PodcastEpisode? _currentEpisode;
 
+  ThemeMode _themeMode = ThemeMode.system;
+
+  ThemeMode get themeMode => _themeMode;
+
+  void setThemeMode(ThemeMode mode) {
+    if (_themeMode == mode) return;
+    _themeMode = mode;
+    unawaited(_themeStore.saveThemeMode(mode));
+    notifyListeners();
+  }
+
+  UserProfile _userProfile = const UserProfile();
+
+  String get username => _userProfile.username;
+  String get bio => _userProfile.bio;
+  List<String> get interests => _userProfile.interests;
+  bool get isPremium => _userProfile.isPremium;
+  bool get hasCompletedOnboarding => _userProfile.hasCompletedOnboarding;
+  bool get highQualityAudio => _userProfile.highQualityAudio;
+  bool get enableNotifications => _userProfile.enableNotifications;
+  bool get newEpisodeAlerts => _userProfile.newEpisodeAlerts;
+
+  Future<void> setHighQualityAudio(bool value) async {
+    if (_userProfile.highQualityAudio == value) return;
+    _userProfile = _userProfile.copyWith(highQualityAudio: value);
+    await _profileStore.saveProfile(_userProfile);
+    notifyListeners();
+  }
+
+  Future<void> setEnableNotifications(bool value) async {
+    if (_userProfile.enableNotifications == value) return;
+    _userProfile = _userProfile.copyWith(enableNotifications: value);
+    await _profileStore.saveProfile(_userProfile);
+    notifyListeners();
+  }
+
+  Future<void> setNewEpisodeAlerts(bool value) async {
+    if (_userProfile.newEpisodeAlerts == value) return;
+    _userProfile = _userProfile.copyWith(newEpisodeAlerts: value);
+    await _profileStore.saveProfile(_userProfile);
+    notifyListeners();
+  }
+
+  Future<void> updateUserProfile(String username, String bio, List<String> interests) async {
+    _userProfile = _userProfile.copyWith(
+      username: username,
+      bio: bio,
+      interests: interests,
+    );
+    await _profileStore.saveProfile(_userProfile);
+    notifyListeners();
+  }
+
+  Future<void> completeOnboarding() async {
+    _userProfile = _userProfile.copyWith(hasCompletedOnboarding: true);
+    await _profileStore.saveProfile(_userProfile);
+    notifyListeners();
+  }
+
+  Future<void> togglePremium() async {
+    _userProfile = _userProfile.copyWith(isPremium: !_userProfile.isPremium);
+    await _profileStore.saveProfile(_userProfile);
+    notifyListeners();
+  }
+
+  Future<void> setPremium(bool value) async {
+    if (_userProfile.isPremium == value) return;
+    _userProfile = _userProfile.copyWith(isPremium: value);
+    await _profileStore.saveProfile(_userProfile);
+    notifyListeners();
+  }
+
   /// True when the current podcast episode failed to start and is not yet
   /// downloaded — drives the offline hint on the player.
   bool _podcastStartFailed = false;
@@ -113,6 +198,7 @@ class PlaybackController extends ChangeNotifier {
   final Map<String, RadioStation> _favouriteStations = {};
   final Set<String> _savedShows = {};
   final Set<String> _savedEpisodes = {};
+  final Set<String> _followedCreators = {};
   final Set<String> _unseenEpisodes = {};
   Timer? _ticker;
   SleepTimerState? _sleepTimer;
@@ -267,6 +353,15 @@ class PlaybackController extends ChangeNotifier {
       // Best-effort.
     }
     try {
+      final List<String> creators = await _libraryStore.loadSavedCreators();
+      if (creators.isNotEmpty && _followedCreators.isEmpty) {
+        _followedCreators.addAll(creators);
+        notifyListeners();
+      }
+    } on Exception {
+      // Best-effort.
+    }
+    try {
       final Map<String, PlaybackProgress> restored = await _progressStore.load();
       if (restored.isNotEmpty && _progress.isEmpty) {
         _progress
@@ -277,11 +372,57 @@ class PlaybackController extends ChangeNotifier {
     } on Exception {
       // Best-effort; progress stays session-only.
     }
+    try {
+      final ThemeMode mode = await _themeStore.loadThemeMode();
+      if (_themeMode != mode) {
+        _themeMode = mode;
+        notifyListeners();
+      }
+    } on Exception {
+      // Best-effort.
+    }
+    try {
+      final UserProfile profile = await _profileStore.loadProfile();
+      _userProfile = profile;
+      notifyListeners();
+    } on Exception {
+      // Best-effort.
+    }
   }
 
   /// Shows the listener saved, shared across the Podcasts home and the show
   /// detail screen so FOLLOW/SAVED is one consistent state.
   Set<String> get savedShows => Set.unmodifiable(_savedShows);
+
+  /// Exposes the set of creator/publisher names followed by the user.
+  Set<String> get followedCreators => Set.unmodifiable(_followedCreators);
+
+  bool isFollowingCreator(String creatorId) => _followedCreators.contains(creatorId);
+
+  void toggleFollowCreator(String creatorId) {
+    if (!_followedCreators.remove(creatorId)) {
+      _followedCreators.add(creatorId);
+    }
+    unawaited(_persistSavedCreators());
+    notifyListeners();
+  }
+
+  Future<void> _persistSavedCreators() async {
+    try {
+      await _libraryStore.saveSavedCreators(_followedCreators.toList());
+    } on Exception {
+      // Best-effort.
+    }
+  }
+
+  /// Calculates the total podcast listening duration across all episodes the user spent time on.
+  Duration get totalPodcastListeningTime {
+    Duration sum = Duration.zero;
+    for (final PlaybackProgress p in _progress.values) {
+      sum += p.position;
+    }
+    return sum;
+  }
 
   bool isSavedShow(String showId) => _savedShows.contains(showId);
 
@@ -381,6 +522,13 @@ class PlaybackController extends ChangeNotifier {
   /// episode (playing it does this automatically).
   void markEpisodeSeen(String episodeId) {
     if (!_unseenEpisodes.remove(episodeId)) return;
+    notifyListeners();
+  }
+
+  /// Clears all unseen episode flags at once.
+  void clearAllUnseenEpisodes() {
+    if (_unseenEpisodes.isEmpty) return;
+    _unseenEpisodes.clear();
     notifyListeners();
   }
 
@@ -848,8 +996,18 @@ class PlaybackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) {
+      super.notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
+    _disposed = true;
     _ticker?.cancel();
     _sleepTicker?.cancel();
     _radioRetryTimer?.cancel();

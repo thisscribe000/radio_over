@@ -1,0 +1,12 @@
+# android/key.properties.template
+#
+# To configure release signing, copy this file to 'key.properties' in the same
+# directory, and fill in your signing credentials.
+#
+# Do NOT check 'key.properties' or your '.keystore'/'.jks' files into git.
+# They are already gitignored.
+
+storePassword=your_keystore_password_here
+keyPassword=your_key_password_here
+keyAlias=your_key_alias_here
+storeFile=your_keystore_file_path_here

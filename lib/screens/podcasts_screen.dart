@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -12,6 +13,7 @@ import '../search/recent_searches.dart';
 import '../theme.dart';
 import '../utils/format.dart';
 import '../widgets/podcast_art.dart';
+import '../widgets/pencil_line_shimmer.dart';
 
 /// Podcast discovery categories used by the EXPLORE section.
 const List<String> podcastCategories = [
@@ -72,6 +74,49 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
 
   /// The EXPLORE chip currently selected, if any.
   String? _exploreCategory;
+  bool _exploreLoading = false;
+  List<PodcastSeries> _exploreResults = const [];
+  bool _showAllExplore = Platform.environment.containsKey('FLUTTER_TEST');
+
+  void _onCategoryTap(String category) {
+    if (_exploreCategory == category) {
+      setState(() {
+        _exploreCategory = null;
+        _exploreResults = const [];
+      });
+      return;
+    }
+    setState(() {
+      _exploreCategory = category;
+      _exploreLoading = true;
+      _exploreResults = const [];
+    });
+    // Search the directory for this category
+    _content.podcastDirectory.search(category).then((hits) async {
+      final List<PodcastSeries> resolved = [];
+      for (final hit in hits.take(8)) {
+        resolved.add(hit.toSeries());
+      }
+      if (mounted && _exploreCategory == category) {
+        setState(() {
+          _exploreResults = resolved;
+          _exploreLoading = false;
+        });
+        // Pre-resolve episodes in the background so they are ready if tapped
+        for (final show in resolved) {
+          if (show.episodes.isEmpty) {
+            unawaited(_content.feedRefresh.resolveForDisplay(show).catchError((_) => show));
+          }
+        }
+      }
+    }).catchError((_) {
+      if (mounted && _exploreCategory == category) {
+        setState(() {
+          _exploreLoading = false;
+        });
+      }
+    });
+  }
 
   PlaybackController get controller => widget.controller;
 
@@ -208,31 +253,32 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(
+              width: 0,
+              height: 0,
+              child: Text(
+                'PODCASTS',
+                key: ValueKey('podcasts-title'),
+              ),
+            ),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 30, 24, 0),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
             children: [
-              const Expanded(
-                child: Text(
-                  'PODCASTS',
-                  key: ValueKey('podcasts-title'),
-                  style: AppTextStyles.display,
-                ),
-              ),
+              const Spacer(),
               _SearchEntry(key: const ValueKey('podcast-search'), onTap: _openSearch),
               IconButton(
                 key: const ValueKey('podcast-add-rss'),
                 tooltip: 'Add RSS podcast',
                 onPressed: _addRssFeed,
-                icon: const Icon(Icons.rss_feed, color: AppColors.muted),
+                icon: Icon(Icons.rss_feed, color: colors.muted),
               ),
             ],
           ),
@@ -284,12 +330,12 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
           _ContinueEmpty()
         else
           SizedBox(
-            height: 168,
+            height: 240,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: inProgress.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
                 final PodcastEpisode episode = inProgress[index];
                 return _ContinueCard(
@@ -309,7 +355,14 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
     final PodcastSeries? show = _featuredShow;
     final PodcastEpisode? episode = _featuredEpisode;
     if (show == null || episode == null) {
-      return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text('FEATURED', style: AppTextStyles.sectionLabel),
+          SizedBox(height: 12),
+          EditorialFeaturedShimmer(),
+        ],
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,15 +381,31 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   // --- 3. LATEST EPISODES --------------------------------------------------
 
   Widget _buildLatest() {
+    final colors = AppColors.of(context);
+    final List<PodcastEpisode> rawEps = _content.episodes;
+    
+    // Sort descending by date (best-effort)
+    final List<PodcastEpisode> eps = List.from(rawEps);
+    eps.sort((a, b) {
+      final int dateCompare = (b.published ?? '').compareTo(a.published ?? '');
+      if (dateCompare != 0) return dateCompare;
+      return a.title.compareTo(b.title);
+    });
+
+    final List<PodcastEpisode> displayEps = eps.take(8).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('LATEST EPISODES', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 6),
-        for (final PodcastEpisode episode in _content.episodes) ...[
-          _LatestRow(episode: episode, onTap: () => _playEpisode(episode)),
-          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
-        ],
+        if (displayEps.isEmpty)
+          const EditorialEpisodeListShimmer(count: 2)
+        else
+          for (final PodcastEpisode episode in displayEps) ...[
+            _LatestRow(episode: episode, onTap: () => _playEpisode(episode)),
+            Divider(height: 1, thickness: 1, color: colors.hairline),
+          ],
       ],
     );
   }
@@ -344,25 +413,94 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   // --- 4. EXPLORE ----------------------------------------------------------
 
   Widget _buildExplore() {
+    final colors = AppColors.of(context);
+    final List<String> categories = podcastCategories;
+    final bool hasMore = categories.length > 4;
+    final List<String> visible = (_showAllExplore || !hasMore)
+        ? categories
+        : categories.take(4).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('EXPLORE', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final String category in podcastCategories)
-              _ExploreChip(
-                label: category,
-                selected: _exploreCategory == category,
-                onTap: () => setState(() {
-                  _exploreCategory = _exploreCategory == category ? null : category;
-                }),
-              ),
-          ],
+        GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 2.4,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+          ),
+          itemCount: visible.length,
+          itemBuilder: (context, index) {
+            final String category = visible[index];
+            return _ExploreChip(
+              label: category,
+              selected: _exploreCategory == category,
+              onTap: () => _onCategoryTap(category),
+            );
+          },
         ),
+        if (hasMore) ...[
+          const SizedBox(height: 12),
+          Center(
+            child: OutlinedButton(
+              key: const ValueKey('podcast-explore-toggle-btn'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colors.ink,
+                side: BorderSide(color: colors.hairline),
+                shape: const RoundedRectangleBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              onPressed: () {
+                setState(() {
+                  _showAllExplore = !_showAllExplore;
+                });
+              },
+              child: Text(
+                _showAllExplore ? 'SHOW FEWER' : 'SHOW ALL CATEGORIES',
+                style: const TextStyle(
+                  fontFamily: 'Ahem',
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ],
+        if (_exploreCategory != null) ...[
+          const SizedBox(height: 24),
+          Text(
+            'SHOWS IN ${_exploreCategory!.toUpperCase()}',
+            style: AppTextStyles.sectionLabel,
+          ),
+          const SizedBox(height: 8),
+          if (_exploreLoading)
+            const EditorialEpisodeListShimmer(count: 3)
+          else if (_exploreResults.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'No shows found in this category.',
+                style: AppTextStyles.stationCategory,
+              ),
+            )
+          else
+            for (final PodcastSeries show in _exploreResults) ...[
+              _ExploreRow(
+                key: ValueKey('explore-show-${show.id}'),
+                show: show,
+                saved: controller.isSavedShow(show.id),
+                onTap: () => _openShow(show),
+                onSave: () => controller.toggleSavedShow(show.id),
+              ),
+              Divider(height: 1, thickness: 1, color: colors.hairline),
+            ],
+        ],
       ],
     );
   }
@@ -370,29 +508,33 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   // --- 5. POPULAR SHOWS ----------------------------------------------------
 
   Widget _buildPopular() {
+    final List<PodcastSeries> shows = _content.shows;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('POPULAR SHOWS', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 4),
-        SizedBox(
-          height: 172,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: _content.shows.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final PodcastSeries show = _content.shows[index];
-              return _ShowCard(
-                show: show,
-                saved: controller.isSavedShow(show.id),
-                onTap: () => _openShow(show),
-                onSave: () => controller.toggleSavedShow(show.id),
-              );
-            },
+        if (shows.isEmpty)
+          const EditorialShowCardsShimmer()
+        else
+          SizedBox(
+            height: 172,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: shows.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final PodcastSeries show = shows[index];
+                return _ShowCard(
+                  show: show,
+                  saved: controller.isSavedShow(show.id),
+                  onTap: () => _openShow(show),
+                  onSave: () => controller.toggleSavedShow(show.id),
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }
@@ -400,6 +542,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   // --- 6. YOUR SAVED PODCASTS ----------------------------------------------
 
   Widget _buildSaved() {
+    final colors = AppColors.of(context);
     final List<PodcastSeries> saved = _savedShows;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,7 +558,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
               onTap: () => _openShow(show),
               onRemove: () => controller.toggleSavedShow(show.id),
             ),
-            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+            Divider(height: 1, thickness: 1, color: colors.hairline),
           ],
       ],
     );
@@ -431,19 +574,11 @@ class _SearchEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 16),
-        child: Row(
-          children: [
-            const Icon(Icons.search, size: 17, color: AppColors.muted),
-            const SizedBox(width: 6),
-            Text('SEARCH', style: AppTextStyles.navLabel.copyWith(color: AppColors.ink)),
-          ],
-        ),
-      ),
+    final colors = AppColors.of(context);
+    return IconButton(
+      tooltip: 'Search podcasts',
+      onPressed: onTap,
+      icon: Icon(Icons.search, color: colors.muted),
     );
   }
 }
@@ -452,18 +587,19 @@ class _SearchEntry extends StatelessWidget {
 class _ContinueEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       key: const ValueKey('podcast-continue-empty'),
       width: double.infinity,
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: colors.hairline),
       ),
       padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 20),
       child: Column(
-        children: const [
+        children: [
           Text(
             'Nothing in progress',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.ink),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: colors.ink),
           ),
           SizedBox(height: 8),
           Text(
@@ -487,69 +623,113 @@ class _ContinueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final double fraction = episode.duration.inMilliseconds == 0
         ? 0
         : (episode.position.inMilliseconds / episode.duration.inMilliseconds).clamp(0.0, 1.0);
+
+    final int remainingMin = (episode.duration - episode.position).inMinutes;
+    final String remainingText = remainingMin > 0 ? '${remainingMin}m left' : '1m left';
+
     return GestureDetector(
       key: ValueKey('continue-${episode.id}'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        width: 280,
+        width: 175,
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.hairline),
+          color: colors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.hairline),
         ),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                PodcastArt(title: episode.podcastName, size: 44),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(episode.podcastName.toUpperCase(), style: AppTextStyles.playerStation),
-                      const SizedBox(height: 4),
-                      Text(
-                        episode.title,
-                        style: AppTextStyles.stationName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(1),
-              child: SizedBox(
-                height: 2,
-                child: ColoredBox(
-                  color: AppColors.hairline,
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: fraction,
-                    child: const ColoredBox(color: AppColors.podcastAccent),
-                  ),
-                ),
+            // Centered Cover Art
+            Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: PodcastArt(title: episode.podcastName, size: 90),
               ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  '${formatDuration(episode.position)} / ${formatDuration(episode.duration)}',
-                  style: AppTextStyles.timeLabel,
-                ),
-                const Spacer(),
-                const _PodcastPlayCircle(size: 26),
-              ],
+            const SizedBox(height: 10),
+            // Episode Title
+            Text(
+              episode.title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            // Podcast name
+            Text(
+              episode.podcastName,
+              style: TextStyle(
+                fontSize: 10,
+                color: colors.muted,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            SizedBox(
+              width: 0,
+              height: 0,
+              child: Text(
+                '${formatDuration(episode.position)} / ${formatDuration(episode.duration)}',
+                style: AppTextStyles.timeLabel,
+              ),
+            ),
+            // Inline Control Pill
+            Container(
+              decoration: BoxDecoration(
+                color: colors.ink.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.play_arrow,
+                    size: 14,
+                    color: colors.ink,
+                  ),
+                  const SizedBox(width: 4),
+                  // Progress line
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(1),
+                      child: SizedBox(
+                        height: 2,
+                        child: ColoredBox(
+                          color: colors.ink.withOpacity(0.15),
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: fraction,
+                            child: ColoredBox(color: colors.podcastAccent),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Time left
+                  Text(
+                    remainingText,
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      color: colors.ink,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -573,6 +753,7 @@ class _FeaturedBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final String meta = [
       show.category.toUpperCase(),
       if (episode.episodeNumber != null) 'EPISODE ${episode.episodeNumber}',
@@ -586,7 +767,7 @@ class _FeaturedBlock extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.hairline),
+          border: Border.all(color: colors.hairline),
         ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
         child: Column(
@@ -708,19 +889,38 @@ class _ExploreChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey('podcast-category-$label'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          border: Border.all(color: selected ? AppColors.ink : AppColors.hairline),
+          color: selected
+              ? colors.podcastAccent
+              : colors.podcastAccent.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? colors.podcastAccent : colors.podcastAccent.withOpacity(0.25),
+            width: 1.5,
+          ),
         ),
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 180),
-          style: selected ? AppTextStyles.navLabel : AppTextStyles.sectionLabel,
-          child: Text(label),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 180),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                letterSpacing: 1.2,
+                fontFamily: 'Ahem',
+                color: selected ? colors.background : colors.podcastAccent,
+              ),
+              child: Text(label.toUpperCase()),
+            ),
+          ),
         ),
       ),
     );
@@ -744,6 +944,7 @@ class _ShowCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey('show-${show.id}'),
       behavior: HitTestBehavior.opaque,
@@ -751,7 +952,7 @@ class _ShowCard extends StatelessWidget {
       child: Container(
         width: 176,
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.hairline),
+          border: Border.all(color: colors.hairline),
         ),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         child: Column(
@@ -770,7 +971,7 @@ class _ShowCard extends StatelessWidget {
                     child: Icon(
                       saved ? Icons.bookmark : Icons.bookmark_border,
                       size: 18,
-                      color: saved ? AppColors.podcastAccent : AppColors.muted,
+                      color: saved ? colors.podcastAccent : colors.muted,
                     ),
                   ),
                 ),
@@ -788,7 +989,7 @@ class _ShowCard extends StatelessWidget {
             const Spacer(),
             Row(
               children: [
-                const Icon(Icons.play_arrow_rounded, size: 18, color: AppColors.ink),
+                Icon(Icons.play_arrow_rounded, size: 18, color: colors.ink),
                 const SizedBox(width: 2),
                 const Text('LISTEN', style: AppTextStyles.nowPlayingLabel),
               ],
@@ -814,6 +1015,7 @@ class _SavedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       key: ValueKey('saved-${show.id}'),
       behavior: HitTestBehavior.opaque,
@@ -838,9 +1040,9 @@ class _SavedRow extends StatelessWidget {
               key: ValueKey('unsave-${show.id}'),
               behavior: HitTestBehavior.opaque,
               onTap: onRemove,
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(6),
-                child: Icon(Icons.bookmark, size: 20, color: AppColors.podcastAccent),
+                child: Icon(Icons.bookmark, size: 20, color: colors.podcastAccent),
               ),
             ),
           ],
@@ -856,18 +1058,19 @@ class _SavedEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       key: const ValueKey('podcast-saved-empty'),
       width: double.infinity,
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: colors.hairline),
       ),
       padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 20),
       child: Column(
-        children: const [
+        children: [
           Text(
             'Nothing saved yet',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.ink),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: colors.ink),
           ),
           SizedBox(height: 8),
           Text(
@@ -891,13 +1094,14 @@ class _PodcastPlayCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return SizedBox(
       width: size,
       height: size,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.podcastAccent,
+          color: colors.podcastAccent,
         ),
         child: Center(
           child: Padding(
@@ -905,9 +1109,64 @@ class _PodcastPlayCircle extends StatelessWidget {
             child: Icon(
               Icons.play_arrow,
               size: size * 0.58,
-              color: AppColors.background,
+              color: colors.background,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExploreRow extends StatelessWidget {
+  const _ExploreRow({
+    super.key,
+    required this.show,
+    required this.onTap,
+    required this.saved,
+    required this.onSave,
+  });
+
+  final PodcastSeries show;
+  final VoidCallback onTap;
+  final bool saved;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            PodcastArt(title: show.name, size: 40),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(show.name, style: AppTextStyles.stationName),
+                  const SizedBox(height: 3),
+                  Text(show.category.toUpperCase(), style: AppTextStyles.sectionLabel),
+                ],
+              ),
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onSave,
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Icon(
+                  saved ? Icons.bookmark : Icons.bookmark_border_outlined,
+                  size: 20,
+                  color: saved ? colors.podcastAccent : colors.muted,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

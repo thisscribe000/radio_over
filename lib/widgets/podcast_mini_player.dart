@@ -24,6 +24,7 @@ class PodcastMiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final PodcastEpisode episode = controller.currentEpisode!;
     final bool playing = controller.isPlaying;
     final double progress = episode.duration.inMilliseconds == 0
@@ -42,9 +43,9 @@ class PodcastMiniPlayer extends StatelessWidget {
           );
         },
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(
-              top: BorderSide(color: AppColors.hairline),
+              top: BorderSide(color: colors.hairline),
             ),
           ),
           padding: const EdgeInsets.fromLTRB(24, 14, 8, 14),
@@ -66,9 +67,9 @@ class PodcastMiniPlayer extends StatelessWidget {
                     ),
                   ),
                   if (controller.sleepActive) ...[
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(left: 8),
-                      child: Icon(Icons.bedtime_outlined, size: 15, color: AppColors.muted),
+                      child: Icon(Icons.bedtime_outlined, size: 15, color: colors.muted),
                     ),
                   ],
                   IconButton(
@@ -76,7 +77,7 @@ class PodcastMiniPlayer extends StatelessWidget {
                     tooltip: 'Close',
                     onPressed: onDismiss,
                     visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.close, size: 20, color: AppColors.muted),
+                    icon: Icon(Icons.close, size: 20, color: colors.muted),
                   ),
                   IconButton(
                     onPressed: controller.toggle,
@@ -84,7 +85,7 @@ class PodcastMiniPlayer extends StatelessWidget {
                     icon: Icon(
                       playing ? Icons.pause : Icons.play_arrow_outlined,
                       size: 28,
-                      color: AppColors.ink,
+                      color: colors.ink,
                     ),
                   ),
                 ],
@@ -101,11 +102,11 @@ class PodcastMiniPlayer extends StatelessWidget {
                         child: SizedBox(
                           height: 2,
                           child: ColoredBox(
-                            color: AppColors.hairline,
+                            color: colors.hairline,
                             child: FractionallySizedBox(
                               alignment: Alignment.centerLeft,
                               widthFactor: progress,
-                              child: const ColoredBox(color: AppColors.podcastAccent),
+                              child: ColoredBox(color: colors.podcastAccent),
                             ),
                           ),
                         ),

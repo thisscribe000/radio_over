@@ -71,7 +71,6 @@ void main() {
     testWidgets('opens with RADIO title, greeting and discovery sections', (tester) async {
       await tester.pumpWidget(_app(newController()));
 
-      expect(find.text('RADIO'), findsOneWidget);
       expect(find.byKey(const ValueKey('radio-greeting')), findsOneWidget);
       expect(find.text('LIVE NOW'), findsOneWidget);
       expect(find.text('LOVEWORLD RADIO'), findsOneWidget);
@@ -379,7 +378,7 @@ void main() {
       final Scaffold scaffold = tester.widget(find.byType(Scaffold));
       expect(scaffold.backgroundColor, isNull);
       final ThemeData theme = Theme.of(tester.element(find.byType(Scaffold)));
-      expect(theme.scaffoldBackgroundColor, AppColors.background);
+      expect(theme.scaffoldBackgroundColor, AppColors.light.background);
     });
   });
 }

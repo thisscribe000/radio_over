@@ -36,7 +36,7 @@ class RssPodcastFeedRepository implements PodcastFeedRepository {
     final http.Response response = await _client.get(
       Uri.parse(feedUrl),
       headers: const <String, String>{'Accept': 'application/rss+xml, application/xml, text/xml, */*'},
-    );
+    ).timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ContentSourceException('Feed ${response.statusCode}: $feedUrl');
     }

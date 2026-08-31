@@ -64,7 +64,7 @@ class PodcastIndexDirectoryRepository implements PodcastDirectoryRepository {
         'X-Auth-Date': '$epoch',
         'Authorization': _signature(epoch),
       },
-    );
+    ).timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ContentSourceException('Podcast Index returned ${response.statusCode} for $path');
     }

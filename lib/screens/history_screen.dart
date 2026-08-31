@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/content_scope.dart';
 import '../models/podcast_episode.dart';
 import '../models/playback.dart';
 import '../models/station.dart';
@@ -49,10 +50,12 @@ class HistoryScreen extends StatefulWidget {
   const HistoryScreen({
     super.key,
     required this.controller,
+    this.content,
     this.onExploreAudio,
   });
 
   final PlaybackController controller;
+  final AppContent? content;
 
   /// Called by the empty state's EXPLORE AUDIO action (after popping back to
   /// the shell) to return to the discovery home.
@@ -64,6 +67,8 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   static const Duration _playerDuration = Duration(milliseconds: 280);
+
+  late final AppContent _content = widget.content ?? AppContent.mock();
 
   /// Id of the audio the listener dismissed from the slot (a contentId
   /// prefixed with its type); null while the slot is (or should be) visible.
@@ -103,6 +108,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // --- Content resolution ---------------------------------------------------
 
   RadioStation? _stationById(String id) {
+    for (final RadioStation station in _content.stations) {
+      if (station.stationId == id) return station;
+    }
+    for (final RadioStation station in controller.favouriteStationDetails) {
+      if (station.stationId == id) return station;
+    }
     for (final RadioStation station in mockStations) {
       if (station.stationId == id) return station;
     }
@@ -110,8 +121,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   PodcastEpisode? _episodeById(String id) {
-    for (final PodcastEpisode episode in mockPodcastEpisodes) {
-      if (episode.id == id) return episode;
+    final PodcastEpisode? episode = _content.episodeById(id);
+    if (episode != null) return episode;
+    for (final PodcastEpisode ep in mockPodcastEpisodes) {
+      if (ep.id == id) return ep;
     }
     return null;
   }
@@ -192,6 +205,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
+    final colors = AppColors.of(context);
         return SafeArea(
           child: Column(
             key: const ValueKey('history-sheet'),
@@ -199,7 +213,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             children: [
               ListTile(
                 key: ValueKey('history-sheet-open-$tag'),
-                leading: const Icon(Icons.play_arrow_outlined, size: 22, color: AppColors.ink),
+                leading: Icon(Icons.play_arrow_outlined, size: 22, color: colors.ink),
                 title: const Text('Open', style: AppTextStyles.stationName),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -208,7 +222,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
               ListTile(
                 key: ValueKey('history-sheet-remove-$tag'),
-                leading: const Icon(Icons.delete_outline, size: 22, color: AppColors.muted),
+                leading: Icon(Icons.delete_outline, size: 22, color: colors.muted),
                 title: const Text('Remove from history', style: AppTextStyles.stationName),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -259,6 +273,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // --- Header --------------------------------------------------------------
 
   Widget _buildHeader() {
+    final colors = AppColors.of(context);
     final bool hasHistory = controller.listeningHistory.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
@@ -269,7 +284,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             tooltip: 'Back',
             visualDensity: VisualDensity.compact,
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
+            icon: Icon(Icons.arrow_back, size: 22, color: colors.ink),
           ),
           const Expanded(
             child: Center(child: Text('HISTORY', style: AppTextStyles.navLabel)),
@@ -362,13 +377,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final List<_Group> groups = _groupEntries(entries);
     final List<Widget> children = [];
     for (final _Group group in groups) {
+    final colors = AppColors.of(context);
       children.add(Text(group.label, style: AppTextStyles.sectionLabel));
       children.add(const SizedBox(height: 6));
       children.add(Column(
         children: [
           for (final _Entry entry in group.entries) ...[
             _buildRow(entry),
-            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+            Divider(height: 1, thickness: 1, color: colors.hairline),
           ],
         ],
       ));
@@ -402,18 +418,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // --- Empty state ----------------------------------------------------------
 
   Widget _buildEmptyState() {
+    final colors = AppColors.of(context);
     return Container(
       key: const ValueKey('history-empty'),
       width: double.infinity,
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: colors.hairline),
       ),
       padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 20),
       child: Column(
         children: [
-          const Text(
+          Text(
             'No listening history yet',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.ink),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.ink),
           ),
           const SizedBox(height: 8),
           Text(
@@ -432,7 +449,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 13),
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.ink),
+                border: Border.all(color: colors.ink),
               ),
               child: const Text('EXPLORE AUDIO', style: AppTextStyles.navLabel),
             ),
@@ -448,11 +465,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
+    final colors = AppColors.of(context);
         return AlertDialog(
           key: const ValueKey('history-clear-dialog'),
-          title: const Text(
+          title: Text(
             'Clear listening history?',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.ink),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: colors.ink),
           ),
           content: Text(
             'This will remove your recent listening activity.',
@@ -500,6 +518,7 @@ class _HistoryStationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final RadioStation station = entry.station!;
     final ListeningHistoryItem item = entry.item;
     final bool active =
@@ -545,7 +564,7 @@ class _HistoryStationRow extends StatelessWidget {
               tooltip: 'More',
               visualDensity: VisualDensity.compact,
               onPressed: onMore,
-              icon: const Icon(Icons.more_horiz, size: 20, color: AppColors.muted),
+              icon: Icon(Icons.more_horiz, size: 20, color: colors.muted),
             ),
             const SizedBox(width: 4),
             GestureDetector(
@@ -581,6 +600,7 @@ class _HistoryEpisodeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final PodcastEpisode episode = entry.episode!;
     final ListeningHistoryItem item = entry.item;
     final bool active = controller.podcastActive && controller.currentEpisode?.id == episode.id;
@@ -635,7 +655,7 @@ class _HistoryEpisodeRow extends StatelessWidget {
                         ),
                         if (completed) ...[
                           const SizedBox(width: 8),
-                          const Icon(Icons.check_circle_outline, size: 12, color: AppColors.muted),
+                          Icon(Icons.check_circle_outline, size: 12, color: colors.muted),
                           const SizedBox(width: 4),
                           const Text('PLAYED', style: AppTextStyles.timeLabel),
                         ],
@@ -649,7 +669,7 @@ class _HistoryEpisodeRow extends StatelessWidget {
               tooltip: 'More',
               visualDensity: VisualDensity.compact,
               onPressed: onMore,
-              icon: const Icon(Icons.more_horiz, size: 20, color: AppColors.muted),
+              icon: Icon(Icons.more_horiz, size: 20, color: colors.muted),
             ),
             const SizedBox(width: 4),
             const _HistoryPlayCircle(playing: false, onPressed: null),
@@ -675,13 +695,14 @@ class _HistoryMonogram extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       width: 40,
       height: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: colors.hairline),
       ),
       child: Text(_initials, style: AppTextStyles.playerStation),
     );
@@ -696,16 +717,17 @@ class _HistoryProgressLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(1),
       child: SizedBox(
         height: 2,
         child: ColoredBox(
-          color: AppColors.hairline,
+          color: colors.hairline,
           child: FractionallySizedBox(
             alignment: Alignment.centerLeft,
             widthFactor: fraction,
-            child: const ColoredBox(color: AppColors.podcastAccent),
+            child: ColoredBox(color: colors.podcastAccent),
           ),
         ),
       ),
@@ -723,9 +745,10 @@ class _HistoryPlayCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Material(
       shape: const CircleBorder(),
-      color: onPressed == null ? AppColors.podcastAccent : AppColors.accent,
+      color: onPressed == null ? colors.podcastAccent : colors.accent,
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onPressed,
@@ -736,7 +759,7 @@ class _HistoryPlayCircle extends StatelessWidget {
             child: Icon(
               playing ? Icons.pause : Icons.play_arrow,
               size: 20,
-              color: AppColors.background,
+              color: colors.background,
             ),
           ),
         ),

@@ -173,6 +173,40 @@ class PodcastEpisode {
       imageUrl: imageUrl ?? this.imageUrl,
     );
   }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'id': id,
+        'podcastId': podcastId,
+        'podcastName': podcastName,
+        'title': title,
+        'durationMs': duration.inMilliseconds,
+        'episodeNumber': episodeNumber,
+        'published': published,
+        'about': about,
+        'positionMs': position.inMilliseconds,
+        'transcriptAvailable': transcriptAvailable,
+        'audioUrl': audioUrl,
+        'guid': guid,
+        'imageUrl': imageUrl,
+      };
+
+  factory PodcastEpisode.fromJson(Map<String, dynamic> json) {
+    return PodcastEpisode(
+      id: json['id'] as String,
+      podcastId: json['podcastId'] as String,
+      podcastName: json['podcastName'] as String,
+      title: json['title'] as String,
+      duration: Duration(milliseconds: json['durationMs'] as int),
+      episodeNumber: json['episodeNumber'] as int?,
+      published: json['published'] as String?,
+      about: json['about'] as String?,
+      position: Duration(milliseconds: json['positionMs'] as int? ?? 0),
+      transcriptAvailable: json['transcriptAvailable'] as bool? ?? false,
+      audioUrl: json['audioUrl'] as String?,
+      guid: json['guid'] as String?,
+      imageUrl: json['imageUrl'] as String?,
+    );
+  }
 }
 
 /// Stable content identity for one episode, used to diff episodes across
@@ -243,6 +277,38 @@ class PodcastSeries {
       if (e.id == episodeId) return e;
     }
     return null;
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'id': id,
+        'name': name,
+        'category': category,
+        'publisher': publisher,
+        'description': description,
+        'frequency': frequency,
+        'imageUrl': imageUrl,
+        'feedUrl': feedUrl,
+        'feedAuthor': feedAuthor,
+        'episodes': [for (final e in episodes) e.toJson()],
+      };
+
+  factory PodcastSeries.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> epsJson = json['episodes'] as List<dynamic>? ?? const [];
+    return PodcastSeries(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      category: json['category'] as String,
+      publisher: json['publisher'] as String,
+      description: json['description'] as String,
+      frequency: json['frequency'] as String?,
+      imageUrl: json['imageUrl'] as String?,
+      feedUrl: json['feedUrl'] as String?,
+      feedAuthor: json['feedAuthor'] as String?,
+      episodes: [
+        for (final dynamic ej in epsJson)
+          if (ej is Map<String, dynamic>) PodcastEpisode.fromJson(ej),
+      ],
+    );
   }
 }
 

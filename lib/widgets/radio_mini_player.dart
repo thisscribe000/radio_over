@@ -20,6 +20,7 @@ class RadioMiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final RadioStation station = controller.currentStation!;
     final bool playing = controller.isPlaying;
     return GestureDetector(
@@ -32,10 +33,10 @@ class RadioMiniPlayer extends StatelessWidget {
         );
       },
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
-            top: BorderSide(color: AppColors.hairline),
-            bottom: BorderSide(color: AppColors.hairline),
+            top: BorderSide(color: colors.hairline),
+            bottom: BorderSide(color: colors.hairline),
           ),
         ),
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -60,9 +61,9 @@ class RadioMiniPlayer extends StatelessWidget {
               ),
             ),
             if (controller.sleepActive) ...[
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(left: 10),
-                child: Icon(Icons.bedtime_outlined, size: 15, color: AppColors.muted),
+                child: Icon(Icons.bedtime_outlined, size: 15, color: colors.muted),
               ),
             ],
             IconButton(
@@ -70,7 +71,7 @@ class RadioMiniPlayer extends StatelessWidget {
               tooltip: 'Close',
               onPressed: onDismiss,
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.close, size: 20, color: AppColors.muted),
+              icon: Icon(Icons.close, size: 20, color: colors.muted),
             ),
             IconButton(
               onPressed: controller.toggle,
@@ -78,7 +79,7 @@ class RadioMiniPlayer extends StatelessWidget {
               icon: Icon(
                 playing ? Icons.pause : Icons.play_arrow_outlined,
                 size: 30,
-                color: AppColors.ink,
+                color: colors.ink,
               ),
             ),
           ],

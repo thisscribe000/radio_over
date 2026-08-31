@@ -66,7 +66,7 @@ class ApplePodcastDirectoryRepository implements PodcastDirectoryRepository {
     final http.Response response = await _client.get(
       uri,
       headers: const <String, String>{'Accept': 'application/json'},
-    );
+    ).timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ContentSourceException('Apple Podcasts returned ${response.statusCode}');
     }
