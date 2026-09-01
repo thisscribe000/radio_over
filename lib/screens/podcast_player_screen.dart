@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../data/podcasts/podcast_transcript_service.dart';
 import '../models/podcast_episode.dart';
 import '../playback/playback_controller.dart';
 import '../theme.dart';
@@ -24,9 +25,14 @@ import '../widgets/sleep_timer_sheet.dart';
 /// the podcast surfaces so they read as on-demand, different from radio's
 /// live terracotta.
 class PodcastPlayerScreen extends StatefulWidget {
-  const PodcastPlayerScreen({super.key, required this.controller});
+  const PodcastPlayerScreen({
+    super.key,
+    required this.controller,
+    this.transcriptService,
+  });
 
   final PlaybackController controller;
+  final PodcastTranscriptService? transcriptService;
 
   @override
   State<PodcastPlayerScreen> createState() => _PodcastPlayerScreenState();
@@ -35,6 +41,49 @@ class PodcastPlayerScreen extends StatefulWidget {
 class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   final PageController _pageController = PageController();
   int _page = 0;
+
+  late final PodcastTranscriptService _transcriptService =
+      widget.transcriptService ?? PodcastTranscriptService();
+
+  List<PodcastCaption>? _liveCaptions;
+  List<PodcastChapter>? _liveChapters;
+  String? _loadedEpisodeId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMetadataIfAvailable();
+  }
+
+  void _fetchMetadataIfAvailable() {
+    final PodcastEpisode? episode = widget.controller.currentEpisode;
+    if (episode == null || episode.id == _loadedEpisodeId) return;
+    _loadedEpisodeId = episode.id;
+    _liveCaptions = episode.customCaptions;
+    _liveChapters = episode.customChapters;
+
+    if (episode.transcriptUrl != null && _liveCaptions == null) {
+      _transcriptService
+          .loadCaptions(episode.transcriptUrl!, type: episode.transcriptType)
+          .then((captions) {
+        if (mounted && captions != null && _loadedEpisodeId == episode.id) {
+          setState(() {
+            _liveCaptions = captions;
+          });
+        }
+      });
+    }
+
+    if (episode.chaptersUrl != null && _liveChapters == null) {
+      _transcriptService.loadChapters(episode.chaptersUrl!).then((chapters) {
+        if (mounted && chapters != null && _loadedEpisodeId == episode.id) {
+          setState(() {
+            _liveChapters = chapters;
+          });
+        }
+      });
+    }
+  }
 
   /// Set once the underlying listen stops (e.g. the sleep timer expires) so
   /// the route pops itself exactly once instead of once per rebuild.
@@ -93,7 +142,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           }
           return const Scaffold(body: SizedBox.shrink());
         }
-        final PodcastEpisode episode = widget.controller.currentEpisode!;
+        _fetchMetadataIfAvailable();
+        final PodcastEpisode baseEpisode = widget.controller.currentEpisode!;
+        final PodcastEpisode episode = baseEpisode.copyWith(
+          customCaptions: _liveCaptions,
+          customChapters: _liveChapters,
+        );
         final bool playing = widget.controller.isPlaying;
         final bool favourite = widget.controller.isSavedEpisode(episode.id);
         final Duration position = widget.controller.podcastPosition;

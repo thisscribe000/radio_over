@@ -86,6 +86,12 @@ class PodcastEpisode {
     this.audioUrl,
     this.guid,
     this.imageUrl,
+    this.transcriptUrl,
+    this.transcriptType,
+    this.chaptersUrl,
+    this.chaptersType,
+    this.customCaptions,
+    this.customChapters,
   });
 
   /// Stable unique identifier, e.g. "the-daily-gaza". Used for favourites
@@ -110,6 +116,24 @@ class PodcastEpisode {
 
   /// Episode artwork URL when the feed overrides the show art. Optional.
   final String? imageUrl;
+
+  /// Remote URL to timed transcript / captions (e.g. WebVTT/SRT file).
+  final String? transcriptUrl;
+
+  /// MIME type or format of the transcript (e.g. "text/vtt", "application/srt", "application/json").
+  final String? transcriptType;
+
+  /// Remote URL to podcast chapters file (e.g. JSON chapters specification).
+  final String? chaptersUrl;
+
+  /// Format type of the chapters file (e.g. "application/json+chapters").
+  final String? chaptersType;
+
+  /// Explicit / parsed timed transcript lines if already fetched.
+  final List<PodcastCaption>? customCaptions;
+
+  /// Explicit / parsed chapters if already fetched.
+  final List<PodcastChapter>? customChapters;
 
   /// Position within the show, e.g. "Episode 184".
   final int? episodeNumber;
@@ -136,11 +160,13 @@ class PodcastEpisode {
       ? 0
       : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
 
-  /// Timed transcript lines, derived lazily until a real feed exists.
-  List<PodcastCaption> get captions => buildMockCaptions(duration, title);
+  /// Timed transcript lines, derived from parsed captions or mock generator.
+  List<PodcastCaption> get captions =>
+      customCaptions ?? buildMockCaptions(duration, title);
 
-  /// Chapter markers, derived lazily until a real feed ships them.
-  List<PodcastChapter> get chapters => buildMockChapters(duration, title);
+  /// Chapter markers, derived from parsed chapters or mock generator.
+  List<PodcastChapter> get chapters =>
+      customChapters ?? buildMockChapters(duration, title);
 
   PodcastEpisode copyWith({
     String? id,
@@ -156,6 +182,12 @@ class PodcastEpisode {
     String? audioUrl,
     String? guid,
     String? imageUrl,
+    String? transcriptUrl,
+    String? transcriptType,
+    String? chaptersUrl,
+    String? chaptersType,
+    List<PodcastCaption>? customCaptions,
+    List<PodcastChapter>? customChapters,
   }) {
     return PodcastEpisode(
       id: id ?? this.id,
@@ -171,6 +203,12 @@ class PodcastEpisode {
       audioUrl: audioUrl ?? this.audioUrl,
       guid: guid ?? this.guid,
       imageUrl: imageUrl ?? this.imageUrl,
+      transcriptUrl: transcriptUrl ?? this.transcriptUrl,
+      transcriptType: transcriptType ?? this.transcriptType,
+      chaptersUrl: chaptersUrl ?? this.chaptersUrl,
+      chaptersType: chaptersType ?? this.chaptersType,
+      customCaptions: customCaptions ?? this.customCaptions,
+      customChapters: customChapters ?? this.customChapters,
     );
   }
 
@@ -188,6 +226,10 @@ class PodcastEpisode {
         'audioUrl': audioUrl,
         'guid': guid,
         'imageUrl': imageUrl,
+        'transcriptUrl': transcriptUrl,
+        'transcriptType': transcriptType,
+        'chaptersUrl': chaptersUrl,
+        'chaptersType': chaptersType,
       };
 
   factory PodcastEpisode.fromJson(Map<String, dynamic> json) {
@@ -205,6 +247,10 @@ class PodcastEpisode {
       audioUrl: json['audioUrl'] as String?,
       guid: json['guid'] as String?,
       imageUrl: json['imageUrl'] as String?,
+      transcriptUrl: json['transcriptUrl'] as String?,
+      transcriptType: json['transcriptType'] as String?,
+      chaptersUrl: json['chaptersUrl'] as String?,
+      chaptersType: json['chaptersType'] as String?,
     );
   }
 }

@@ -689,7 +689,7 @@ class _ContinueCard extends StatelessWidget {
             // Inline Control Pill
             Container(
               decoration: BoxDecoration(
-                color: colors.ink.withOpacity(0.08),
+                color: colors.ink.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -708,7 +708,7 @@ class _ContinueCard extends StatelessWidget {
                       child: SizedBox(
                         height: 2,
                         child: ColoredBox(
-                          color: colors.ink.withOpacity(0.15),
+                          color: colors.ink.withValues(alpha: 0.15),
                           child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,
                             widthFactor: fraction,
@@ -899,10 +899,10 @@ class _ExploreChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? colors.podcastAccent
-              : colors.podcastAccent.withOpacity(0.08),
+              : colors.podcastAccent.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? colors.podcastAccent : colors.podcastAccent.withOpacity(0.25),
+            color: selected ? colors.podcastAccent : colors.podcastAccent.withValues(alpha: 0.25),
             width: 1.5,
           ),
         ),

@@ -131,6 +131,29 @@ void main() {
       expect(series.episodes.first.podcastName, 'Signal Fire');
     });
 
+    test('parses podcast:transcript and podcast:chapters tags', () {
+      final PodcastSeries series = parser.parseFeed('''
+<?xml version="1.0"?>
+<rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+<channel>
+<title>Podcast 2.0 Show</title>
+<description>Podcast with transcripts and chapters</description>
+<item>
+  <title>Episode with Meta</title>
+  <enclosure url="https://e/audio.mp3"/>
+  <podcast:transcript url="https://e/transcript.vtt" type="text/vtt"/>
+  <podcast:chapters url="https://e/chapters.json" type="application/json+chapters"/>
+</item>
+</channel></rss>
+''');
+      final PodcastEpisode ep = series.episodes.single;
+      expect(ep.transcriptUrl, 'https://e/transcript.vtt');
+      expect(ep.transcriptType, 'text/vtt');
+      expect(ep.transcriptAvailable, isTrue);
+      expect(ep.chaptersUrl, 'https://e/chapters.json');
+      expect(ep.chaptersType, 'application/json+chapters');
+    });
+
     test('throws a FormatException for non-RSS input', () {
       expect(
         () => parser.parseFeed('<html><body>not a feed</body></html>'),

@@ -86,7 +86,7 @@ class CreatorHostingRepository {
         podcastId: showId,
         podcastName: data['podcastName'] as String? ?? '',
         title: data['title'] as String? ?? '',
-        description: data['description'] as String? ?? '',
+        about: data['description'] as String? ?? '',
         audioUrl: data['audioUrl'] as String?,
         duration: Duration(seconds: data['durationSeconds'] as int? ?? 0),
         published: data['publishedDate'] as String? ?? '',
@@ -112,9 +112,9 @@ class CreatorHostingRepository {
         .set({
       'podcastName': episode.podcastName,
       'title': episode.title,
-      'description': episode.description,
+      'description': episode.about,
       'audioUrl': episode.audioUrl,
-      'durationSeconds': episode.duration?.inSeconds ?? 0,
+      'durationSeconds': episode.duration.inSeconds,
       'publishedDate': episode.published,
       'publishedAt': FieldValue.serverTimestamp(),
     });

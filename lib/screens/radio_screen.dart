@@ -788,10 +788,10 @@ class _CategoryChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? colors.podcastAccent
-              : colors.podcastAccent.withOpacity(0.08),
+              : colors.podcastAccent.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? colors.podcastAccent : colors.podcastAccent.withOpacity(0.25),
+            color: selected ? colors.podcastAccent : colors.podcastAccent.withValues(alpha: 0.25),
             width: 1.5,
           ),
         ),

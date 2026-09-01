@@ -65,6 +65,10 @@ class RssPodcastParser {
     final Duration duration = _parseDuration(_text(item, 'itunes:duration') ?? _text(item, 'duration') ?? '');
     final String? image = _attr(item, 'itunes:image', 'href') ?? _text(item, 'itunes:image');
     final String? publishedRaw = _text(item, 'pubDate') ?? _text(item, 'dc:date');
+    final String? transcriptUrl = _attr(item, 'podcast:transcript', 'url');
+    final String? transcriptType = _attr(item, 'podcast:transcript', 'type');
+    final String? chaptersUrl = _attr(item, 'podcast:chapters', 'url');
+    final String? chaptersType = _attr(item, 'podcast:chapters', 'type');
 
     final String id = (guid?.isNotEmpty ?? false) ? guid! : _slugId(title ?? 'episode');
     final String episodeTitle = title ?? 'Untitled episode';
@@ -80,6 +84,11 @@ class RssPodcastParser {
       audioUrl: (enclosureUrl == null || enclosureUrl.isEmpty) ? null : enclosureUrl,
       guid: guid,
       imageUrl: (image == null || image.isEmpty) ? null : image,
+      transcriptUrl: transcriptUrl,
+      transcriptType: transcriptType,
+      transcriptAvailable: (transcriptUrl != null && transcriptUrl.isNotEmpty),
+      chaptersUrl: chaptersUrl,
+      chaptersType: chaptersType,
     );
   }
 
