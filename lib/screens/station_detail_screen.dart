@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../data/content_scope.dart';
 import '../models/podcast_episode.dart';
@@ -146,6 +147,18 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
 
   // --- Top ----------------------------------------------------------------
 
+  void _shareStation() async {
+    final st = station;
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: 'Listen live to ${st.name} (${st.location ?? "Live Radio"}) on radio_over!',
+          subject: st.name,
+        ),
+      );
+    } catch (_) {}
+  }
+
   Widget _buildTopBar() {
     final colors = AppColors.of(context);
     return Padding(
@@ -168,7 +181,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
             key: const ValueKey('station-detail-share'),
             tooltip: 'Share',
             visualDensity: VisualDensity.compact,
-            onPressed: () {},
+            onPressed: _shareStation,
             icon: Icon(Icons.share_outlined, size: 18, color: colors.muted),
           ),
           const SizedBox(width: 48),

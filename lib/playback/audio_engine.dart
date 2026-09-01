@@ -8,7 +8,8 @@ import 'dart:async';
 /// can both exist without touching the controller or the widget layer.
 abstract class AudioEngine {
   /// Begins streaming/playing [url]. Replaces whatever was playing before.
-  Future<void> start(String url);
+  /// If [initialPosition] is provided, begins playback from that point.
+  Future<void> start(String url, {Duration? initialPosition});
 
   /// Pauses current playback, retaining position where the format allows.
   Future<void> pause();
@@ -99,7 +100,7 @@ class SimulatedAudioEngine implements StatefulAudioEngine {
       _events.add(AudioEngineEvent(state: _state, metadata: title));
 
   @override
-  Future<void> start(String url) async {
+  Future<void> start(String url, {Duration? initialPosition}) async {
     if (url.isEmpty) return;
     _emit(EngineStreamState.connecting);
     if (failNextStart) {
@@ -108,7 +109,7 @@ class SimulatedAudioEngine implements StatefulAudioEngine {
       return;
     }
     currentUrl = url;
-    position = Duration.zero;
+    position = initialPosition ?? Duration.zero;
     isPaused = false;
     isStopped = false;
     _emit(EngineStreamState.playing);

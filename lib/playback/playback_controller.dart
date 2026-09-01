@@ -10,12 +10,17 @@ import '../data/library/library_store.dart';
 import '../data/progress/playback_progress_store.dart';
 import '../data/theme/theme_store.dart';
 import '../data/profile/user_profile_store.dart';
+import '../data/timeline/comment_store.dart';
+import '../data/timeline/snippet_store.dart';
+import '../models/audio_snippet.dart';
 import '../models/download.dart';
 import '../models/playback.dart';
 import '../models/playback_progress.dart';
 import '../models/podcast_episode.dart';
+import '../models/snippet_comment.dart';
 import '../models/station.dart';
 import '../models/user_profile.dart';
+import '../models/user_role.dart';
 import 'audio_engine.dart';
 
 /// Single source of truth for what is currently playing.
@@ -65,6 +70,12 @@ class PlaybackController extends ChangeNotifier {
   /// Persists user profile settings.
   final UserProfileStore _profileStore;
 
+  /// Persists community audio snippets.
+  final SnippetStore _snippetStore;
+
+  /// Persists snippet comments.
+  final SnippetCommentStore _commentStore;
+
   /// Cap on how often playback progress is written to storage. Position is
   /// held in memory every tick (so Continue Listening stays live); the store
   /// is only written this frequently to avoid hammering disk each second.
@@ -84,6 +95,8 @@ class PlaybackController extends ChangeNotifier {
     PlaybackProgressStore? progressStore,
     ThemeStore? themeStore,
     UserProfileStore? profileStore,
+    SnippetStore? snippetStore,
+    SnippetCommentStore? commentStore,
     DownloadManager? downloads,
     Duration? progressPersistInterval,
     this.radioRetryDelay = const Duration(seconds: 2),
@@ -94,6 +107,8 @@ class PlaybackController extends ChangeNotifier {
         _progressStore = progressStore ?? InMemoryPlaybackProgressStore(),
         _themeStore = themeStore ?? InMemoryThemeStore(),
         _profileStore = profileStore ?? InMemoryUserProfileStore(),
+        _snippetStore = snippetStore ?? InMemorySnippetStore(),
+        _commentStore = commentStore ?? InMemorySnippetCommentStore(),
         downloads = downloads ??
             DownloadManager(
               store: InMemoryDownloadStore(),
@@ -108,6 +123,8 @@ class PlaybackController extends ChangeNotifier {
     this.downloads.addListener(notifyListeners);
     unawaited(_loadFavourites());
     unawaited(_loadPersisted());
+    unawaited(_loadSnippets());
+    unawaited(_loadComments());
   }
 
   /// The engine currently driving sound (exposed for future wiring).
@@ -200,6 +217,19 @@ class PlaybackController extends ChangeNotifier {
   final Set<String> _savedEpisodes = {};
   final Set<String> _followedCreators = {};
   final Set<String> _unseenEpisodes = {};
+  UserRole _userRole = UserRole.listener;
+  UserRole get userRole => _userRole;
+
+  void setUserRole(UserRole role) {
+    if (_userRole == role) return;
+    _userRole = role;
+    notifyListeners();
+  }
+
+  final List<AudioSnippet> _snippets = [];
+  AudioSnippet? _playingSnippet;
+  final List<SnippetComment> _comments = [];
+  List<SnippetComment> get comments => List.unmodifiable(_comments);
   Timer? _ticker;
   SleepTimerState? _sleepTimer;
   Timer? _sleepTicker;
@@ -413,6 +443,130 @@ class PlaybackController extends ChangeNotifier {
     } on Exception {
       // Best-effort.
     }
+  }
+
+  /// Community audio snippets on the timeline.
+  List<AudioSnippet> get snippets => List.unmodifiable(_snippets);
+
+  /// Currently playing snippet if audio playback was initiated from a snippet card.
+  AudioSnippet? get playingSnippet => _playingSnippet;
+
+  Future<void> _loadSnippets() async {
+    try {
+      final loaded = await _snippetStore.loadSnippets();
+      if (loaded.isNotEmpty && _snippets.isEmpty) {
+        _snippets.addAll(loaded);
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadComments() async {
+    try {
+      final loaded = await _commentStore.loadComments();
+      if (loaded.isNotEmpty && _comments.isEmpty) {
+        _comments.addAll(loaded);
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  /// Returns all comments for a specific snippet.
+  List<SnippetComment> commentsFor(String snippetId) {
+    return _comments
+        .where((c) => c.snippetId == snippetId)
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
+
+  /// Returns the total comment count for a snippet.
+  int commentsCountFor(String snippetId) {
+    return _comments.where((c) => c.snippetId == snippetId).length;
+  }
+
+  /// Adds a new comment, updates snippet commentsCount, and persists both.
+  Future<void> addComment(SnippetComment comment) async {
+    _comments.add(comment);
+    final int sIdx = _snippets.indexWhere((s) => s.id == comment.snippetId);
+    if (sIdx != -1) {
+      _snippets[sIdx] = _snippets[sIdx].copyWith(
+        commentsCount: _snippets[sIdx].commentsCount + 1,
+      );
+      await _snippetStore.saveSnippets(_snippets);
+    }
+    await _commentStore.saveComments(_comments);
+    notifyListeners();
+  }
+
+  /// Toggles like status on a comment.
+  Future<void> toggleLikeComment(String commentId) async {
+    final int idx = _comments.indexWhere((c) => c.id == commentId);
+    if (idx != -1) {
+      final SnippetComment c = _comments[idx];
+      final bool newLiked = !c.isLiked;
+      final int newCount = newLiked
+          ? c.likesCount + 1
+          : (c.likesCount > 0 ? c.likesCount - 1 : 0);
+      _comments[idx] = c.copyWith(isLiked: newLiked, likesCount: newCount);
+      await _commentStore.saveComments(_comments);
+      notifyListeners();
+    }
+  }
+
+  /// Adds a newly trimmed audio snippet and persists it to the timeline.
+  Future<void> createSnippet(AudioSnippet snippet) async {
+    _snippets.insert(0, snippet);
+    await _snippetStore.saveSnippets(_snippets);
+    notifyListeners();
+  }
+
+  /// Adds an ordered multi-part audio thread to the timeline and persists it.
+  Future<void> createSnippetThread(List<AudioSnippet> threadItems) async {
+    if (threadItems.isEmpty) return;
+    for (final item in threadItems.reversed) {
+      _snippets.insert(0, item);
+    }
+    await _snippetStore.saveSnippets(_snippets);
+    notifyListeners();
+  }
+
+  /// Returns all snippets belonging to [threadId] sorted by threadIndex.
+  List<AudioSnippet> threadSnippets(String threadId) {
+    return _snippets
+        .where((s) => s.threadId == threadId)
+        .toList()
+      ..sort((a, b) => a.threadIndex.compareTo(b.threadIndex));
+  }
+
+  /// Toggles the like state for a snippet and increments/decrements its counter.
+  Future<void> toggleLikeSnippet(String snippetId) async {
+    final int index = _snippets.indexWhere((s) => s.id == snippetId);
+    if (index != -1) {
+      final AudioSnippet item = _snippets[index];
+      final bool newLiked = !item.isLiked;
+      final int newCount = newLiked
+          ? item.likesCount + 1
+          : (item.likesCount > 0 ? item.likesCount - 1 : 0);
+      _snippets[index] = item.copyWith(isLiked: newLiked, likesCount: newCount);
+      await _snippetStore.saveSnippets(_snippets);
+      notifyListeners();
+    }
+  }
+
+  /// Plays the audio of a snippet from its start timestamp.
+  void playSnippet(AudioSnippet snippet) {
+    _playingSnippet = snippet;
+    final PodcastEpisode ep = PodcastEpisode(
+      id: snippet.episodeId,
+      podcastId: snippet.podcastId,
+      podcastName: snippet.podcastName,
+      title: snippet.episodeTitle,
+      duration: snippet.end > Duration.zero ? snippet.end : const Duration(minutes: 30),
+      audioUrl: snippet.audioUrl,
+      imageUrl: snippet.episodeImageUrl,
+    );
+    playPodcastEpisode(ep);
+    seek(snippet.start);
   }
 
   /// Calculates the total podcast listening duration across all episodes the user spent time on.
@@ -791,7 +945,8 @@ class PlaybackController extends ChangeNotifier {
 
   void playPodcastEpisode(PodcastEpisode episode) {
     _audioType = AudioType.podcast;
-    _currentEpisode = _restoredEpisode(episode);
+    final PodcastEpisode restored = _restoredEpisode(episode);
+    _currentEpisode = restored;
     _currentStation = null;
     _status = PlayerStatus.playing;
     _unseenEpisodes.remove(episode.id);
@@ -803,7 +958,11 @@ class PlaybackController extends ChangeNotifier {
     final String source = downloads.localPathFor(episode.id) ??
         episode.audioUrl ??
         '';
-    unawaited(_engine.start(source));
+    final Duration startPos = restored.position;
+    unawaited(_engine.start(
+      source,
+      initialPosition: startPos > Duration.zero ? startPos : null,
+    ));
     notifyListeners();
   }
 
@@ -968,6 +1127,26 @@ class PlaybackController extends ChangeNotifier {
       return;
     }
     final Duration next = episode.position + const Duration(seconds: 1);
+
+    // If currently playing a snippet/thread part and it reached the end of this part
+    final AudioSnippet? snippet = _playingSnippet;
+    if (snippet != null && next >= snippet.end) {
+      if (snippet.isThread &&
+          snippet.threadIndex < snippet.threadTotal &&
+          snippet.threadId != null) {
+        final String tId = snippet.threadId!;
+        final int nextIdx = snippet.threadIndex + 1;
+        final nextPart = _snippets.cast<AudioSnippet?>().firstWhere(
+              (s) => s?.threadId == tId && s?.threadIndex == nextIdx,
+              orElse: () => null,
+            );
+        if (nextPart != null) {
+          playSnippet(nextPart);
+          return;
+        }
+      }
+    }
+
     if (next >= episode.duration) {
       if (_sleepTimer?.mode == SleepTimerMode.endOfEpisode) {
         _expireSleepTimer();

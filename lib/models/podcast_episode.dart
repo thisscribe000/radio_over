@@ -15,17 +15,32 @@ class PodcastChapter {
   final String? description;
 }
 
-/// Generates placeholder chapter markers spread evenly across the episode.
-/// A real feed would ship its own chapter timestamps; this keeps the feel
-/// without shipping a chapter editor.
+/// Generates dynamic, content-aware chapter markers based on the episode title.
 List<PodcastChapter> buildMockChapters(Duration duration, String episodeTitle) {
-  const List<String> titles = [
-    'Introduction',
-    'The story so far',
-    'Turning point',
-    'What happens next',
-  ];
-  final int n = titles.length + 1;
+  final String title = episodeTitle.isNotEmpty ? episodeTitle : 'Episode';
+  final List<String> titles;
+
+  if (title.contains(':')) {
+    final parts = title.split(':');
+    final main = parts.first.trim();
+    final sub = parts.sublist(1).join(':').trim();
+    titles = [
+      'Introduction: $main',
+      'Context: $sub',
+      'The Core Investigation',
+      'Key Findings & Analysis',
+      'Closing Perspectives',
+    ];
+  } else {
+    titles = [
+      'Introduction to $title',
+      'The Story & Background',
+      'Deep Dive & Analysis',
+      'Key Takeaways & Wrap-up',
+    ];
+  }
+
+  final int n = titles.length;
   final Duration step = Duration(milliseconds: duration.inMilliseconds ~/ n);
   return [
     for (int i = 0; i < titles.length; i++)
@@ -409,6 +424,7 @@ const List<PodcastSeries> mockPodcasts = [
         episodeNumber: 546,
         published: 'Aug 16',
         about: 'Three letters that decide where everything goes. The surprisingly contested history of the airport code.',
+        transcriptAvailable: true,
       ),
       PodcastEpisode(
         id: '99pi-banyan',
@@ -420,6 +436,7 @@ const List<PodcastSeries> mockPodcasts = [
         published: 'Aug 14',
         about: 'A single tree that became a courtyard, a shade, and a city landmark — and the people who keep it alive.',
         position: Duration(minutes: 6, seconds: 18),
+        transcriptAvailable: true,
       ),
     ],
   ),
@@ -440,6 +457,7 @@ const List<PodcastSeries> mockPodcasts = [
         episodeNumber: 12,
         published: 'Aug 12',
         about: 'A phone bill, a gas station, and a question nobody can answer. We re-examine the alibi that changed the case.',
+        transcriptAvailable: true,
       ),
       PodcastEpisode(
         id: 'serial-breakup',
@@ -451,6 +469,7 @@ const List<PodcastSeries> mockPodcasts = [
         published: 'Aug 10',
         about: 'When the key witness steps back, the whole story tilts. What happened to make them walk away?',
         position: Duration(minutes: 41),
+        transcriptAvailable: true,
       ),
     ],
   ),

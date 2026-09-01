@@ -48,6 +48,8 @@ void main() {
       // Inactive tabs: icon only, no label.
       expect(iconIn('PODCASTS', Icons.podcasts), findsOneWidget);
       expect(labelIn('PODCASTS'), findsNothing);
+      expect(iconIn('TIMELINE', Icons.auto_awesome), findsOneWidget);
+      expect(labelIn('TIMELINE'), findsNothing);
       expect(iconIn('LIBRARY', Icons.library_music_outlined), findsOneWidget);
       expect(labelIn('LIBRARY'), findsNothing);
     });
@@ -68,7 +70,7 @@ void main() {
           of: find.byType(PillTabBar),
           matching: find.byType(Icon),
         ),
-        findsNWidgets(2),
+        findsNWidgets(3),
       );
     });
   });
@@ -85,8 +87,17 @@ void main() {
       // Radio collapsed back to its icon.
       expect(iconIn('RADIO', Icons.radio), findsOneWidget);
       expect(labelIn('RADIO'), findsNothing);
+      expect(iconIn('TIMELINE', Icons.auto_awesome), findsOneWidget);
+      expect(labelIn('TIMELINE'), findsNothing);
       expect(iconIn('LIBRARY', Icons.library_music_outlined), findsOneWidget);
       expect(labelIn('LIBRARY'), findsNothing);
+
+      // Move to Timeline.
+      await tester.tap(find.byKey(const ValueKey('tab-TIMELINE')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(labelIn('TIMELINE'), findsOneWidget);
+      expect(iconIn('TIMELINE', Icons.auto_awesome), findsNothing);
 
       // Move to Library (right).
       await tester.tap(find.byKey(const ValueKey('tab-LIBRARY')));

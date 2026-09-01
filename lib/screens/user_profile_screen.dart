@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/content_scope.dart';
+import '../data/podcasts/mock_podcast_directory_repository.dart';
+import '../data/podcasts/mock_podcast_feed_repository.dart';
+import '../data/radio/mock_radio_repository.dart';
 import '../models/playback.dart';
+import '../models/user_role.dart';
 import '../playback/playback_controller.dart';
 import '../theme.dart';
+import '../utils/format.dart';
 import '../widgets/podcast_art.dart';
 import '../widgets/podcast_mini_player.dart';
 import '../widgets/radio_mini_player.dart';
+import '../widgets/verified_badge.dart';
 import 'creator_profile_screen.dart';
+import 'search_screen.dart';
 import 'settings_screen.dart';
 
 /// Renders the user profile card, styled to match the clean, tabular mockup (Image 1).
@@ -16,11 +23,11 @@ class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({
     super.key,
     required this.controller,
-    required this.content,
+    this.content,
   });
 
   final PlaybackController controller;
-  final AppContent content;
+  final AppContent? content;
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -248,13 +255,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  AppContent get _content =>
+      widget.content ??
+      AppContent(
+        radio: const MockRadioRepository(),
+        podcastDirectory: const MockPodcastDirectoryRepository(),
+        podcastFeeds: const MockPodcastFeedRepository(),
+      );
+
   void _openCreatorProfile(String name) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => CreatorProfileScreen(
           creatorName: name,
           controller: controller,
-          content: widget.content,
+          content: _content,
         ),
       ),
     );
@@ -321,7 +336,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         MaterialPageRoute<void>(
                           builder: (_) => SettingsScreen(
                             controller: controller,
-                            content: widget.content,
+                            content: _content,
                           ),
                         ),
                       );
@@ -390,23 +405,127 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 color: colors.ink,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            Icon(Icons.forest, size: 18, color: colors.podcastAccent.withValues(alpha: 0.75)),
+                            if (controller.userRole.isCreator) ...[
+                              const SizedBox(width: 8),
+                              const VerifiedBadge(size: 18, showLabel: true, label: 'CREATOR'),
+                            ] else ...[
+                              const SizedBox(width: 6),
+                              Icon(Icons.forest, size: 18, color: colors.podcastAccent.withValues(alpha: 0.75)),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 6),
 
-                        // Membership Tier
-                        Text(
-                          controller.isPremium ? 'PREMIUM SUBSCRIBER' : 'FREE TIER MEMBER',
-                          style: TextStyle(
-                            fontFamily: 'Ahem',
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: colors.podcastAccent,
+                        // Role & Membership Row
+                        Row(
+                          children: [
+                            Text(
+                              controller.isPremium ? 'PREMIUM SUBSCRIBER' : 'FREE TIER MEMBER',
+                              style: TextStyle(
+                                fontFamily: 'Ahem',
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: colors.podcastAccent,
+                              ),
+                            ),
+                            Text(' · ', style: TextStyle(color: colors.muted)),
+                            Text(
+                              controller.userRole.label,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                                color: controller.userRole.isCreator
+                                    ? colors.accent
+                                    : colors.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Creator Role Mode Switcher Card
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: controller.userRole.isCreator
+                                ? colors.accent.withValues(alpha: 0.08)
+                                : colors.card,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: controller.userRole.isCreator
+                                  ? colors.accent.withValues(alpha: 0.3)
+                                  : colors.hairline,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                controller.userRole.isCreator
+                                    ? Icons.verified
+                                    : Icons.mic_none_outlined,
+                                size: 18,
+                                color: controller.userRole.isCreator
+                                    ? colors.accent
+                                    : colors.podcastAccent,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      controller.userRole.isCreator
+                                          ? 'CREATOR MODE ACTIVE'
+                                          : 'ENABLE CREATOR MODE',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.6,
+                                        color: controller.userRole.isCreator
+                                            ? colors.accent
+                                            : colors.ink,
+                                      ),
+                                    ),
+                                    Text(
+                                      controller.userRole.isCreator
+                                          ? 'Verified native badge enabled on your clips & replies'
+                                          : 'Claim shows and post verified highlight clips',
+                                      style: TextStyle(fontSize: 10.5, color: colors.muted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              TextButton(
+                                key: const ValueKey('toggle-creator-role-btn'),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  backgroundColor: controller.userRole.isCreator
+                                      ? colors.accent.withValues(alpha: 0.15)
+                                      : colors.podcastAccent.withValues(alpha: 0.1),
+                                ),
+                                onPressed: () {
+                                  final newRole = controller.userRole.isCreator
+                                      ? UserRole.listener
+                                      : UserRole.creator;
+                                  controller.setUserRole(newRole);
+                                },
+                                child: Text(
+                                  controller.userRole.isCreator ? 'LISTENER' : 'CREATOR',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                    color: controller.userRole.isCreator
+                                        ? colors.accent
+                                        : colors.podcastAccent,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
 
                         // Interest Chips
                         Wrap(
@@ -440,7 +559,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             const Spacer(),
                             IconButton(
                               icon: Icon(Icons.search, color: colors.ink),
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => SearchScreen(
+                                      controller: controller,
+                                      content: _content,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -572,14 +700,27 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               },
                             ),
                         ] else ...[
-                          // Timeline Tab Content (Listening History)
-                          const Text('TIMELINE FEED', style: AppTextStyles.sectionLabel),
+                          // Timeline Tab Content (My Clips & Activity)
+                          Row(
+                            children: [
+                              const Text('SHARED CLIPS & HIGHLIGHTS', style: AppTextStyles.sectionLabel),
+                              const Spacer(),
+                              Text(
+                                '${controller.snippets.length} CLIPS',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: colors.podcastAccent,
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 12),
-                          if (controller.listeningHistory.isEmpty)
+                          if (controller.snippets.isEmpty)
                             Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               child: Text(
-                                'No timeline items recorded.',
+                                'No clips shared yet. Trim your favorite moments from any podcast episode to post them here!',
                                 style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: colors.muted),
                               ),
                             )
@@ -587,7 +728,95 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             ListView.separated(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              itemCount: controller.listeningHistory.length,
+                              itemCount: controller.snippets.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final snippet = controller.snippets[index];
+                                final isPlaying = controller.isPlaying &&
+                                    controller.playingSnippet?.id == snippet.id;
+                                return Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: colors.card,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isPlaying ? colors.podcastAccent : colors.hairline,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                                          color: colors.podcastAccent,
+                                          size: 28,
+                                        ),
+                                        onPressed: () {
+                                          if (isPlaying) {
+                                            controller.toggle();
+                                          } else {
+                                            controller.playSnippet(snippet);
+                                          }
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              snippet.caption,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: colors.ink,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              '${snippet.podcastName} · ${formatDuration(snippet.start)} - ${formatDuration(snippet.end)}',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: colors.muted,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.favorite, size: 14, color: snippet.isLiked ? colors.accent : colors.muted),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            '${snippet.likesCount}',
+                                            style: TextStyle(fontSize: 11, color: colors.muted),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          const SizedBox(height: 24),
+                          const Text('RECENT LISTENING ACTIVITY', style: AppTextStyles.sectionLabel),
+                          const SizedBox(height: 12),
+                          if (controller.listeningHistory.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Text(
+                                'No recent listening activity recorded.',
+                                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: colors.muted),
+                              ),
+                            )
+                          else
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: controller.listeningHistory.take(5).length,
                               separatorBuilder: (context, index) =>
                                   Divider(height: 1, color: colors.hairline),
                               itemBuilder: (context, index) {
@@ -600,7 +829,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                   ),
                                   subtitle: Text(
-                                    'ID: ${item.contentId} · ${item.listenedAt.hour}:${item.listenedAt.minute}',
+                                    'ID: ${item.contentId} · ${item.listenedAt.hour}:${item.listenedAt.minute.toString().padLeft(2, '0')}',
                                     style: const TextStyle(fontSize: 11),
                                   ),
                                   trailing: Icon(

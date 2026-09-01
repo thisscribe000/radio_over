@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../data/content_scope.dart';
 import '../data/podcasts/podcast_feed_refresh_service.dart';
@@ -14,6 +15,7 @@ import '../widgets/podcast_art.dart';
 import '../widgets/podcast_mini_player.dart';
 import '../widgets/radio_mini_player.dart';
 import '../widgets/pencil_line_shimmer.dart';
+import '../widgets/verified_badge.dart';
 import 'creator_profile_screen.dart';
 
 /// The Podcast Detail / Show screen.
@@ -132,6 +134,18 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
     );
   }
 
+  void _shareShow() async {
+    final show = _show;
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: 'Listen to "${show.name}" by ${show.publisher} on radio_over!',
+          subject: show.name,
+        ),
+      );
+    } catch (_) {}
+  }
+
   void _openShow(PodcastSeries show) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -173,7 +187,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                       key: const ValueKey('detail-share'),
                       tooltip: 'Share',
                       visualDensity: VisualDensity.compact,
-                      onPressed: () {},
+                      onPressed: _shareShow,
                       icon: Icon(Icons.ios_share, size: 20, color: colors.muted),
                     ),
                   ],
@@ -257,12 +271,23 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                         ),
                       );
                     },
-                    child: Text(
-                      show.publisher,
-                      style: AppTextStyles.stationProgramme.copyWith(
-                        decoration: TextDecoration.underline,
-                        decorationColor: colors.muted.withValues(alpha: 0.3),
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            show.publisher,
+                            style: AppTextStyles.stationProgramme.copyWith(
+                              decoration: TextDecoration.underline,
+                              decorationColor: colors.muted.withValues(alpha: 0.3),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        const VerifiedBadge(size: 13),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 8),

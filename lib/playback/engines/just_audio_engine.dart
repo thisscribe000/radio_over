@@ -85,7 +85,7 @@ class JustAudioEngine implements StatefulAudioEngine {
   }
 
   @override
-  Future<void> start(String url) {
+  Future<void> start(String url, {Duration? initialPosition}) {
     final int generation = ++_sourceGeneration;
     _playWhenReady = true;
     // Stop immediately so a failed or empty replacement can never leave the
@@ -93,12 +93,16 @@ class JustAudioEngine implements StatefulAudioEngine {
     _hasSource = false;
     unawaited(_player.stop().catchError((_) {}));
     _sourceOperation = _sourceOperation.then(
-      (_) => _startSource(url, generation),
+      (_) => _startSource(url, generation, initialPosition: initialPosition),
     );
     return _sourceOperation;
   }
 
-  Future<void> _startSource(String url, int generation) async {
+  Future<void> _startSource(
+    String url,
+    int generation, {
+    Duration? initialPosition,
+  }) async {
     if (generation != _sourceGeneration) return;
     if (url.isEmpty) {
       _add(const AudioEngineEvent(state: EngineStreamState.error));
@@ -109,10 +113,11 @@ class JustAudioEngine implements StatefulAudioEngine {
     try {
       if (!url.contains('://')) {
         // Local file (downloaded episode): play from disk, no ICY headers.
-        await _player.setFilePath(url);
+        await _player.setFilePath(url, initialPosition: initialPosition);
       } else {
         await _player.setUrl(
           url,
+          initialPosition: initialPosition,
           headers: const <String, String>{'Icy-MetaData': '1'},
         );
       }

@@ -6,6 +6,7 @@ import '../models/podcast_episode.dart';
 import '../playback/playback_controller.dart';
 import '../theme.dart';
 import '../utils/format.dart';
+import '../widgets/audio_equalizer_sheet.dart';
 import '../widgets/now_playing_info.dart';
 import '../widgets/player_icon_button.dart';
 import '../widgets/player_top_bar.dart';
@@ -13,6 +14,7 @@ import '../widgets/podcast_art.dart';
 import '../widgets/podcast_captions.dart';
 import '../widgets/podcast_chapters.dart';
 import '../widgets/podcast_progress.dart';
+import '../widgets/podcast_snippet_clipper_sheet.dart';
 import '../widgets/sleep_timer_indicator.dart';
 import '../widgets/sleep_timer_sheet.dart';
 
@@ -186,6 +188,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                     ),
                   ),
                   _PodcastControls(
+                    controller: widget.controller,
                     playing: playing,
                     onPlayPause: widget.controller.toggle,
                     onRewind: () => widget.controller.seek(
@@ -201,6 +204,11 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                     onFavourite: () => widget.controller.toggleSavedEpisode(episode.id),
                     downloaded: widget.controller.isDownloaded(episode.id),
                     onDownload: () => widget.controller.toggleDownload(episode),
+                    onClip: () => PodcastSnippetClipperSheet.show(
+                      context,
+                      controller: widget.controller,
+                      episode: episode,
+                    ),
                     onShare: () => _shareEpisode(episode),
                     sleepActive: widget.controller.sleepActive,
                     onSleep: () => _openSleepTimer(context),
@@ -478,12 +486,14 @@ class _PlayerPageSwitch extends StatelessWidget {
 /// Primary transport: speed, rewind, the dominant Play/Pause, forward, equalizer settings.
 class _PodcastControls extends StatefulWidget {
   const _PodcastControls({
+    required this.controller,
     required this.playing,
     required this.onPlayPause,
     required this.onRewind,
     required this.onForward,
   });
 
+  final PlaybackController controller;
   final bool playing;
   final VoidCallback onPlayPause;
   final VoidCallback onRewind;
@@ -595,8 +605,12 @@ class _PodcastControlsState extends State<_PodcastControls> {
           width: 48,
           height: 48,
           child: IconButton(
+            key: const ValueKey('podcast-equalizer-btn'),
             icon: Icon(Icons.tune, size: 22, color: colors.ink),
-            onPressed: () {},
+            onPressed: () => AudioEqualizerSheet.show(
+              context,
+              controller: widget.controller,
+            ),
           ),
         ),
       ],
@@ -613,6 +627,7 @@ class _SecondaryActions extends StatefulWidget {
     required this.onFavourite,
     required this.downloaded,
     required this.onDownload,
+    required this.onClip,
     required this.onShare,
     required this.sleepActive,
     required this.onSleep,
@@ -622,6 +637,7 @@ class _SecondaryActions extends StatefulWidget {
   final VoidCallback onFavourite;
   final bool downloaded;
   final VoidCallback onDownload;
+  final VoidCallback onClip;
   final VoidCallback onShare;
   final bool sleepActive;
   final VoidCallback onSleep;
@@ -682,6 +698,16 @@ class _SecondaryActionsState extends State<_SecondaryActions> {
               downloaded ? Icons.download_done : Icons.download_outlined,
               size: 22,
               color: downloaded ? colors.podcastAccent : colors.ink,
+            ),
+          ),
+          PlayerIconButton(
+            key: const ValueKey('podcast-clip'),
+            tooltip: 'Clip & Share Highlight',
+            onPressed: widget.onClip,
+            icon: Icon(
+              Icons.content_cut,
+              size: 20,
+              color: colors.podcastAccent,
             ),
           ),
           PlayerIconButton(

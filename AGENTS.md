@@ -3,7 +3,35 @@
 Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a plain `ChangeNotifier`), no persistence/backend/state-management library. Widget-test driven (`flutter test`), analyzer clean.
 
 ## Build status
-- **264 tests pass, `flutter analyze` clean** (as of Podcast Discovery, RSS import, and seeking).
+- **Version 2 Release APK Built (`v2.0.0+2`)**: `build/app/outputs/flutter-apk/app-release.apk` (67.4MB) built and ready for distribution.
+- **299 tests pass, `flutter analyze` clean** (including Podcast Discovery, Transcripts/Chapters, Offline Downloads, Podcast Audio Clipper & Social Timeline Highlights Feed, Audio Snippet Thread System, Verified Creator Badges, Creator Roles, Interactive Comments System, and App Icon & Native Splash Assets).
+- **Custom Brand Identity & App Icons**:
+  - Generated high-resolution 3D glassmorphic neon audio pulse brand mark (`assets/icon/app_icon.png` and `assets/icon/splash_logo.png`).
+  - Configured `flutter_launcher_icons` generating all Android mipmap densities (`mipmap-hdpi`, `mdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) + adaptive icons (`#0D0E11` background) and iOS AppIcon set.
+  - Configured `flutter_native_splash` creating dark-mode `#0D0E11` native splash screens for Android 12+ and iOS.
+- **Audio Equalizer & Voice Clarity Sheet (`AudioEqualizerSheet`)**:
+  - Integrated via `Icons.tune` on `PodcastPlayerScreen` offering 4 sound profiles (*Vocal Clarity*, *Balanced*, *Bass Boost*, *Treble Boost*), *Intelligent Voice Clarity*, and *Auto Volume Leveling*.
+  - **"For you" | "Following" Top Bar Tabs**: Community-wide discovery stream vs. filtered highlights from followed podcast hosts and shows.
+  - **Social Post Cards with Verified Badges**: Displays author avatar, author name with `VerifiedBadge` (for native creators/hosts), time-ago metadata, styled quote/caption text, audio preview box, and stacked card design for multi-part threads.
+  - **Social Action Pills Row**: Interactive comment pill (`💬 N`), like pill (`❤️ N`), share pill (`↗`), and jump-to-full-episode button (`🎧`).
+- **Interactive Discussion & Comments System (`SnippetCommentsSheet`)**:
+  - Tapping the comment pill on any snippet card or thread opens a dedicated bottom sheet with real-time replies, verified badges on creator responses, formatted timestamps, like buttons, and an inline "Add a reply..." composer.
+  - Persisted via `SnippetCommentStore` (`InMemorySnippetCommentStore` for tests, `SharedPreferencesSnippetCommentStore` for disk persistence).
+- **Creator Roles & Verified Badges**:
+  - `UserRole { listener, creator, stationCurator }` managed on `PlaybackController`.
+  - Profile switcher in `UserProfileScreen` allows users to toggle between Listener and Creator modes. When in Creator mode, all newly published snippets and replies automatically receive the verified badge.
+  - `VerifiedBadge` rendered on `CreatorProfileScreen` header, `PodcastDetailScreen` publisher links, `TimelineScreen` cards, and comments.
+- **Podcast Playback Resume (`initialPosition`)**: Fixed resuming episodes so `PlaybackController.playPodcastEpisode` passes the restored timestamp as `initialPosition` to `AudioEngine.start()` (`just_audio`'s `setUrl`/`setFilePath`), starting physical audio instantly from the saved position instead of starting from zero.
+- **Audio Snippet Trimmer (`PodcastSnippetClipperSheet`)**: Upgraded to dedicated **POINT A (Start)** and **POINT B (End)** interactive cards and sliders with separate precision nudge buttons (`-10s/-1s/+1s/+10s`), `SET TO PLAYHEAD` instant anchors, duration presets (`15s/30s/60s/2m/3m`), and live audio waveform bars. Thumbs never overlap or lock up.
+- **Podcast Audio Snippet Clipper & Social Timeline Highlights Feed (V2)**:
+  - **Audio Snippet Trimmer (`PodcastSnippetClipperSheet`)**: Interactive dual-point trimmer in `lib/widgets/podcast_snippet_clipper_sheet.dart` launched via `podcast-clip` action in `PodcastPlayerScreen`. Allows trimming 5–90s memorable moments with live preview playback, custom caption/quote commentary, and direct posting to the community feed.
+  - **Timeline Highlights Screen (`TimelineScreen`)**: 3rd tab in `AppShell` (`RADIO(0)`, `PODCASTS(1)`, `TIMELINE(2)`, `LIBRARY(3)`). Renders audio highlight cards with custom quotes, creator avatars, duration pill, inline playback, community like counters, social sharing via `share_plus`, and jump-to-full-episode routing.
+  - **Persistence & Store (`SnippetStore`)**: `lib/data/timeline/snippet_store.dart` with `InMemorySnippetStore` (tests), `SharedPreferencesSnippetStore` (key `audio-snippets-v1`), and starter community highlights.
+  - **Playback Controller Integration**: `PlaybackController` manages `snippets`, `playingSnippet`, `createSnippet()`, `toggleLikeSnippet()`, and `playSnippet()`.
+  - **User Profile Integration**: `UserProfileScreen` displays the user's shared clips and highlights inside the profile timeline tab.
+  - **Live Podcast 2.0 Captions & Chapters**: RSS parser extracts `<podcast:transcript>` and `<podcast:chapters>`; `PodcastTranscriptService` parses WebVTT, SRT subtitles, and JSON chapters for real-time phrase highlighting and jump-to-timestamp seeking.
+- Radio + Podcast saving/history/downloads unified on `PlaybackController`.
+- Library screen (fourth shell tab), Listening History screen, and global Sleep Timer built and wired.
 - **Real Search + Discovery**: the existing `SearchScreen` is wired to the live content sources (no UI redesign, no new search screen). `SearchEngine` (`lib/search/search_engine.dart`) reads through `AppContent` (`isLive`) — `searchStations` → `RadioBrowserRepository.search` (Radio Browser `/stations/search`, `hidebroken=true` to prefer reachable stations; full station fields from the mapper: name/country/language/tags/favicon/logo/`stationuuid`/stream URL) and `searchShows` → `PodcastIndexDirectoryRepository.search` (`/search/byterm`). Results keep the feed URL + directory id as stable primary keys so the existing Podcast/Radio detail and player screens route from search unchanged. Debounce (180ms, `_onChanged`), stale-request protection (`_fetch` checks `term != _term`), and the empty-query guard (returns early, no network) all live in `search_screen.dart`. Follow/save/favourite/download+play still go through the existing controller/stores (no new storage). Manual RSS addition is untouched and independent of directory search.
   - **Episode search limitation**: Podcast Index offers **no global episode-by-term endpoint** (it's an open feature request, podcastindex docs issue #132). Per the provider's capability, episode search is NOT faked/invented — `SearchEngine` searches the local `content.episodes` catalogue (episodes of followed/known/refreshed feeds) and the existing within-feed episode browsing in the detail screen remains. Documented so no one assumes a global episode API exists.
   - **Recent-searches persistence**: `lib/search/recent_search_store.dart` (abstract `RecentSearchStore` + `SharedPreferencesRecentSearchStore`, key `recent-searches-v1`; `InMemoryRecentSearchStore` for tests). `RecentSearches` (`lib/search/recent_searches.dart`) takes an injectable store, `restore()`s on open (SearchScreen `initState`), and saves fire-and-forget on add/remove/clear. Wired from `main.dart` → `AppShell` → `PodcastsScreen` → `SearchScreen`. Defaults in-memory so widget tests never touch platform channels.
@@ -29,7 +57,7 @@ Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a 
 - Dialog/sheet widgets live in the root navigator overlay — use unscoped finders for them.
 
 ## Navigation
-- Shell tabs: RADIO(0), PODCASTS(1), LIBRARY(2) — keys `tab-<label>`.
+- Shell tabs: RADIO(0), PODCASTS(1), TIMELINE(2), LIBRARY(3) — keys `tab-<label>`.
 - Player routes pushed over shell: `RadioPlayerScreen(controller)`, `PodcastPlayerScreen(controller)`, `StationDetailScreen(station, controller)`, `PodcastDetailScreen(show, controller)`, `SearchScreen(controller)`.
 - Library → History: `library-history` entry → `HistoryScreen(controller, onExploreAudio: ...)`.
 - No Episode Detail screen exists; episodes play + push `PodcastPlayerScreen` (same as search/library).

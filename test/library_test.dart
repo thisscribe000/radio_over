@@ -114,7 +114,7 @@ void main() {
         await switchToLibrary(tester);
 
         final IndexedStack stack = tester.widget(find.byType(IndexedStack));
-        expect(stack.index, 2);
+        expect(stack.index, 3);
         expect(find.byKey(const ValueKey('library-title')), findsOneWidget);
         expect(libraryText('Your saved audio, in one place.'), findsOneWidget);
         expect(find.byKey(const ValueKey('library-filter-all')), findsOneWidget);
@@ -386,7 +386,7 @@ void main() {
         await revealInLibrary(tester, find.byKey(const ValueKey('library-station-Jazz FM')));
         expect(find.byKey(const ValueKey('library-station-Jazz FM')), findsOneWidget);
         final IndexedStack stack = tester.widget(find.byType(IndexedStack));
-        expect(stack.index, 2);
+        expect(stack.index, 3);
       });
     });
   });

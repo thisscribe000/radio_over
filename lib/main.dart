@@ -18,6 +18,8 @@ import 'data/theme/theme_store.dart';
 import 'data/profile/user_profile_store.dart';
 import 'data/profile/firebase_user_profile_store.dart';
 import 'data/profile/firebase_service.dart';
+import 'data/timeline/comment_store.dart';
+import 'data/timeline/snippet_store.dart';
 import 'models/station.dart';
 import 'navigation/app_shell.dart';
 import 'playback/engines/just_audio_engine.dart';
@@ -65,6 +67,8 @@ class _RadioAppState extends State<RadioApp> {
       localStore: SharedPreferencesUserProfileStore(),
       firebaseService: FirebaseService(),
     ),
+    snippetStore: SharedPreferencesSnippetStore(),
+    commentStore: SharedPreferencesSnippetCommentStore(),
     downloads: DownloadManager(store: SharedPreferencesDownloadStore()),
   );
 

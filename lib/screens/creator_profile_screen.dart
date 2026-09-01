@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../widgets/podcast_art.dart';
 import '../widgets/podcast_mini_player.dart';
 import '../widgets/radio_mini_player.dart';
+import '../widgets/verified_badge.dart';
 import 'podcast_detail_screen.dart';
 
 /// Renders a host/publisher creator profile page.
@@ -151,14 +152,24 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    widget.creatorName,
-                                    style: TextStyle(
-                                      fontFamily: 'Ahem',
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: colors.ink,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          widget.creatorName,
+                                          style: TextStyle(
+                                            fontFamily: 'Ahem',
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: colors.ink,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const VerifiedBadge(size: 16),
+                                    ],
                                   ),
                                   const SizedBox(height: 4),
                                   Text(

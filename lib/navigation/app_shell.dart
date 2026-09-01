@@ -6,13 +6,14 @@ import '../playback/playback_controller.dart';
 import '../screens/library_screen.dart';
 import '../screens/podcasts_screen.dart';
 import '../screens/radio_screen.dart';
+import '../screens/timeline_screen.dart';
 import '../search/recent_searches.dart';
 import '../widgets/pill_tab_bar.dart';
 import '../widgets/podcast_mini_player.dart';
 
 /// Top-level navigation shell.
 ///
-/// Hosts the tab bar (RADIO / PODCASTS / LIBRARY) and the shared bottom
+/// Hosts the tab bar (RADIO / PODCASTS / TIMELINE / LIBRARY) and the shared bottom
 /// podcast mini-player slot, which persists across tabs. The visible tab moves
 /// freely; the podcast strip stays put so the listener can keep a session
 /// going while browsing. Dismissing the strip hides it until a new episode is
@@ -83,10 +84,11 @@ class _AppShellState extends State<AppShell> {
             content: _content,
             recentSearches: _recentSearches,
           ),
+          TimelineScreen(controller: widget.controller),
           LibraryScreen(
             controller: widget.controller,
             content: _content,
-            active: _index == 2,
+            active: _index == 3,
             onExploreAudio: () => setState(() => _index = 1),
           ),
         ],
@@ -113,6 +115,7 @@ class _AppShellState extends State<AppShell> {
             tabs: const [
               PillTabDestination('RADIO', Icons.radio),
               PillTabDestination('PODCASTS', Icons.podcasts),
+              PillTabDestination('TIMELINE', Icons.auto_awesome),
               PillTabDestination('LIBRARY', Icons.library_music_outlined),
             ],
             selectedIndex: _index,

@@ -315,7 +315,7 @@ void main() {
 
         expect(find.byKey(const ValueKey('history-back')), findsNothing);
         final IndexedStack stack = tester.widget(find.byType(IndexedStack));
-        expect(stack.index, 2);
+        expect(stack.index, 3);
         expect(find.byKey(const ValueKey('library-list')), findsOneWidget);
       });
     });

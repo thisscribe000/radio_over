@@ -808,5 +808,37 @@ void main() {
         expect(find.byKey(const ValueKey('transcript-placeholder')), findsOneWidget);
       });
     });
+
+    testWidgets('podcast player equalizer button opens AudioEqualizerSheet with presets',
+        (tester) async {
+      await runPodcastTest(tester, (tester, controller) async {
+        await openShowDetail(tester, 'the-daily');
+        await tester.tap(find.byKey(const ValueKey('detail-row-the-daily-banking')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        final eqBtn = find.byKey(const ValueKey('podcast-equalizer-btn'));
+        expect(eqBtn, findsOneWidget);
+        await tester.tap(eqBtn);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('audio-equalizer-sheet')), findsOneWidget);
+        expect(find.text('AUDIO TUNING & VOICING'), findsOneWidget);
+        expect(find.text('Vocal Clarity'), findsOneWidget);
+        expect(find.text('Balanced Natural'), findsOneWidget);
+        expect(find.text('Bass Boost'), findsOneWidget);
+        expect(find.text('Treble Boost'), findsOneWidget);
+
+        // Tap Bass Boost preset
+        await tester.tap(find.byKey(const ValueKey('preset-bassBoost')));
+        await tester.pumpAndSettle();
+
+        // Close sheet
+        await tester.tap(find.byIcon(Icons.close));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('audio-equalizer-sheet')), findsNothing);
+      });
+    });
   });
 }

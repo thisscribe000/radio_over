@@ -22,7 +22,7 @@ RadioStation station() => const RadioStation(
 /// An engine that never finishes connecting — the honest CONNECTING… state.
 class StalledEngine extends SimulatedAudioEngine {
   @override
-  Future<void> start(String url) async {}
+  Future<void> start(String url, {Duration? initialPosition}) async {}
 }
 
 void main() {
