@@ -14,6 +14,8 @@ import '../screens/user_profile_screen.dart';
 import '../theme.dart';
 import '../utils/format.dart';
 import '../widgets/active_dot.dart';
+import '../widgets/add_custom_station_dialog.dart';
+import '../widgets/opml_dialog.dart';
 import '../widgets/podcast_art.dart';
 import '../widgets/radio_mini_player.dart';
 
@@ -286,6 +288,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   style: AppTextStyles.stationName,
                 ),
               ],
+            ),
+          ),
+          IconButton(
+            key: const ValueKey('library-custom-station-button'),
+            tooltip: 'Add Custom Radio',
+            icon: Icon(Icons.add_link, size: 24, color: colors.accent),
+            onPressed: () => AddCustomStationDialog.show(
+              context,
+              controller: controller,
+            ),
+          ),
+          IconButton(
+            key: const ValueKey('library-opml-button'),
+            tooltip: 'OPML Subscriptions',
+            icon: Icon(Icons.import_export, size: 24, color: colors.podcastAccent),
+            onPressed: () => OpmlDialog.show(
+              context,
+              controller: controller,
+              content: _content,
             ),
           ),
           IconButton(

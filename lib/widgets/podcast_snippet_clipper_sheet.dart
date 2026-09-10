@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+import '../data/timeline/audio_snippet_exporter.dart';
 import '../models/audio_snippet.dart';
 import '../models/podcast_episode.dart';
 import '../playback/playback_controller.dart';
@@ -49,6 +50,7 @@ class _PodcastSnippetClipperSheetState
   late double _maxSec;
   final TextEditingController _captionController = TextEditingController();
   bool _posting = false;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -205,6 +207,41 @@ class _PodcastSnippetClipperSheetState
           ),
         );
       }
+    }
+  }
+
+  Future<void> _exportSnippetAudio() async {
+    setState(() => _exporting = true);
+    final String baseCaption = _captionController.text.trim().isNotEmpty
+        ? _captionController.text.trim()
+        : 'Highlight from ${widget.episode.title}';
+
+    final AudioSnippet snippet = AudioSnippet(
+      id: 'snippet-export-${DateTime.now().millisecondsSinceEpoch}',
+      userId: 'user-current',
+      userName: 'Listener',
+      podcastId: widget.episode.podcastId,
+      podcastName: widget.episode.podcastName,
+      episodeId: widget.episode.id,
+      episodeTitle: widget.episode.title,
+      episodeImageUrl: widget.episode.imageUrl,
+      audioUrl: widget.episode.audioUrl,
+      start: Duration(seconds: _startSec.round()),
+      end: Duration(seconds: _endSec.round()),
+      caption: baseCaption,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      final exporter = AudioSnippetExporter();
+      await exporter.exportAndShare(
+        snippet: snippet,
+        downloadManager: widget.controller.downloads,
+      );
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() => _exporting = false);
     }
   }
 
@@ -643,6 +680,27 @@ class _PodcastSnippetClipperSheetState
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const ValueKey('clipper-export-btn'),
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: Text(
+                  _exporting ? 'EXPORTING AUDIO...' : 'EXPORT AUDIO FILE (.MP3)',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colors.podcastAccent,
+                  side: BorderSide(color: colors.podcastAccent.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: _exporting ? null : _exportSnippetAudio,
+              ),
             ),
           ],
         ),

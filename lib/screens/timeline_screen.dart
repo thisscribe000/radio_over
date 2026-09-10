@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../data/timeline/audio_snippet_exporter.dart';
 import '../models/audio_snippet.dart';
 import '../playback/playback_controller.dart';
 import '../theme.dart';
@@ -35,6 +36,16 @@ class _TimelineScreenState extends State<TimelineScreen> {
     try {
       await SharePlus.instance.share(
         ShareParams(text: text, subject: 'Podcast Highlight — ${snippet.podcastName}'),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _exportSnippetAudio(AudioSnippet snippet) async {
+    try {
+      final exporter = AudioSnippetExporter();
+      await exporter.exportAndShare(
+        snippet: snippet,
+        downloadManager: widget.controller.downloads,
       );
     } catch (_) {}
   }
@@ -256,6 +267,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                         },
                         onLike: () => widget.controller.toggleLikeSnippet(snippet.id),
                         onShare: () => _shareSnippet(snippet),
+                        onExportAudio: () => _exportSnippetAudio(snippet),
                         onComments: () => _openComments(context, snippet),
                         onFullEpisode: () => _openFullEpisode(context, snippet),
                         onOpenThread: snippet.isThread
@@ -283,6 +295,7 @@ class _SnippetCard extends StatelessWidget {
     required this.onPlayPause,
     required this.onLike,
     required this.onShare,
+    this.onExportAudio,
     required this.onComments,
     required this.onFullEpisode,
     this.onOpenThread,
@@ -294,6 +307,7 @@ class _SnippetCard extends StatelessWidget {
   final VoidCallback onPlayPause;
   final VoidCallback onLike;
   final VoidCallback onShare;
+  final VoidCallback? onExportAudio;
   final VoidCallback onComments;
   final VoidCallback onFullEpisode;
   final VoidCallback? onOpenThread;
@@ -627,6 +641,38 @@ class _SnippetCard extends StatelessWidget {
                   child: Icon(Icons.ios_share, size: 14, color: colors.muted),
                 ),
               ),
+
+              if (onExportAudio != null) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  key: ValueKey('snippet-export-${snippet.id}'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onExportAudio,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: colors.background,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: colors.hairline),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.download_rounded, size: 13, color: colors.podcastAccent),
+                        const SizedBox(width: 3),
+                        Text(
+                          'MP3',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: colors.podcastAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
 
               const Spacer(),
 

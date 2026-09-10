@@ -12,7 +12,11 @@ Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a 
   - Created Fastlane metadata under `fastlane/metadata/android/en-US/` (`title.txt`, `short_description.txt`, `full_description.txt`, `changelogs/2.txt`, `images/phoneScreenshots/`).
   - Created F-Droid recipe (`fdroid/com.radioover.radio_over.yml`) following `fdroid rewritemeta` syntax rules.
   - Added `FDROID_FLUTTER_PLAYBOOK.md` to repository root.
-- **299 tests pass, `flutter analyze` clean** (including Podcast Discovery, Transcripts/Chapters, Offline Downloads, Podcast Audio Clipper & Social Timeline Highlights Feed, Audio Snippet Thread System, Verified Creator Badges, Creator Roles, Interactive Comments System, and App Icon & Native Splash Assets).
+- **308 tests pass, `flutter analyze` clean** (including OPML Import/Export, Standalone Audio Snippet Exporter, Custom Radio Store, Fastlane Store Screenshots, Transcripts/Chapters, Offline Downloads, Audio Snippet Clipper, Timeline Highlights Feed, Audio Threads, Verified Badges, and Equalizer).
+- **Fastlane Store Screenshots**: Generated 5 high-resolution phone screenshots (`01_radio_live.png`, `02_podcast_transcripts.png`, `03_audio_clipper.png`, `04_timeline_highlights.png`, `05_equalizer.png`) under `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
+- **Standalone Audio Snippet Export**: `AudioSnippetExporter` (`lib/data/timeline/audio_snippet_exporter.dart`) slices audio frame bytes and shares physical `.mp3` audio files via `SharePlus` directly from `PodcastSnippetClipperSheet` and `TimelineScreen` action rows.
+- **Universal OPML Podcast Subscriptions**: `OpmlService` (`lib/data/podcasts/opml_service.dart`) handles export/import of OPML 2.0 XML with outline nodes; accessible via `OpmlDialog` in `LibraryScreen`.
+- **Custom Radio Stream URLs**: `CustomRadioStore` (`lib/data/radio/custom_radio_store.dart`) and `AddCustomStationDialog` allow listeners to add and play direct Icecast/Shoutcast/HLS streams.
 - **Custom Brand Identity & App Icons**:
   - Generated high-resolution 3D glassmorphic neon audio pulse brand mark (`assets/icon/app_icon.png` and `assets/icon/splash_logo.png`).
   - Configured `flutter_launcher_icons` generating all Android mipmap densities (`mipmap-hdpi`, `mdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) + adaptive icons (`#0D0E11` background) and iOS AppIcon set.

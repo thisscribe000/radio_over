@@ -22,8 +22,10 @@
 - 🌍 **Worldwide Live Radio**: Stream thousands of stations globally powered by the community-driven [Radio Browser](https://www.radio-browser.info/) API with real-time ICY metadata and resilient auto-reconnect.
 - 🎙️ **Podcast 2.0 Directory & Feeds**: Search and subscribe to shows through [Podcast Index](https://podcastindex.org/) and custom RSS feeds with automatic background feed refresh.
 - 📝 **Live Transcripts & Synchronized Highlighting**: Follow along with WebVTT and SRT transcripts featuring real-time phrase highlighting and interactive chapter jumping.
-- ✂️ **Dual-Anchor Audio Snippet Trimmer**: Clip and capture memorable audio moments with precision sliders, nudge buttons (-10s/-1s/+1s/+10s), duration presets (15s–3m), and audio waveform visualization.
+- ✂️ **Dual-Anchor Audio Snippet Trimmer & Export**: Clip and capture memorable audio moments with precision sliders, nudge buttons (-10s/-1s/+1s/+10s), duration presets (15s–3m), waveform visualization, and physical `.mp3` audio file export.
 - 💬 **Community Highlights Feed**: Share audio quotes, discover highlights from other listeners, participate in threaded discussions, and see verified creator badges.
+- 📦 **OPML Podcast Import & Export**: Universal podcast subscription interoperability with standard OPML 2.0 XML support.
+- 📻 **Custom Radio Streams**: Manually add and bookmark direct Icecast, Shoutcast, or HLS stream URLs.
 - 🎚️ **Audio Equalizer & Voice Clarity**: 4 acoustic sound profiles (*Vocal Clarity*, *Balanced*, *Bass Boost*, *Treble Boost*) plus voice enhancement and auto-volume leveling.
 - 📥 **Offline Downloads**: Save complete podcast episodes to local storage for offline playback.
 - 🌙 **Sleep Timer**: Flexible timer with duration presets (15, 30, 45, 60 minutes) or graceful *End of Episode* stop.
@@ -37,7 +39,7 @@
 - **Audio Engine**: [`just_audio`](https://pub.dev/packages/just_audio) + [`audio_service`](https://pub.dev/packages/audio_service) for native background audio and OS lock-screen media controls
 - **Audio Session**: [`audio_session`](https://pub.dev/packages/audio_session)
 - **Local Persistence**: Abstract Store pattern with [`shared_preferences`](https://pub.dev/packages/shared_preferences) for offline playback state, favorites, and history
-- **Tests**: 299 comprehensive unit and widget tests (`flutter test`)
+- **Tests**: 308 comprehensive unit and widget tests (`flutter test`)
 
 ---
 
