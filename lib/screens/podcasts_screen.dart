@@ -14,6 +14,7 @@ import '../theme.dart';
 import '../utils/format.dart';
 import '../widgets/podcast_art.dart';
 import '../widgets/pencil_line_shimmer.dart';
+import '../widgets/add_rss_feed_dialog.dart';
 
 /// Podcast discovery categories used by the EXPLORE section.
 const List<String> podcastCategories = [
@@ -182,35 +183,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   }
 
   Future<void> _addRssFeed() async {
-    final TextEditingController input = TextEditingController();
-    final String? url = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('ADD RSS PODCAST'),
-        content: TextField(
-          controller: input,
-          autofocus: true,
-          keyboardType: TextInputType.url,
-          decoration: const InputDecoration(
-            labelText: 'RSS feed URL',
-            hintText: 'https://example.com/podcast.xml',
-          ),
-        ),
-        actions: [
-          TextButton(
-            key: const ValueKey('rss-add-cancel'),
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('CANCEL'),
-          ),
-          FilledButton(
-            key: const ValueKey('rss-add-submit'),
-            onPressed: () => Navigator.of(context).pop(input.text),
-            child: const Text('ADD'),
-          ),
-        ],
-      ),
-    );
-    input.dispose();
+    final String? url = await AddRssFeedDialog.show(context);
     if (!mounted || url == null) return;
     try {
       final PodcastSeries show = await _content.addPodcastFeed(url);
