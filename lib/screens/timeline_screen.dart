@@ -677,26 +677,22 @@ class _SnippetCard extends StatelessWidget {
               const Spacer(),
 
               // Jump to Full Episode Button
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    key: ValueKey('snippet-full-${snippet.id}'),
-                    icon: const Icon(Icons.headphones, size: 13),
-                    label: const Text('FULL EPISODE'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.podcastAccent,
-                      textStyle: const TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    ),
-                    onPressed: onFullEpisode,
+              TextButton.icon(
+                key: ValueKey('snippet-full-${snippet.id}'),
+                icon: const Icon(Icons.headphones, size: 13),
+                label: const Text('FULL EPISODE'),
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.podcastAccent,
+                  textStyle: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
                   ),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
+                onPressed: onFullEpisode,
               ),
             ],
           ),
