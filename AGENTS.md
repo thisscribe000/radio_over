@@ -10,9 +10,9 @@ Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a 
   - Added AGP 8+ plugin namespace fallback (`configureNamespace`) in `android/build.gradle.kts`.
   - Added standard MIT License (`LICENSE`) for FLOSS repository compliance.
   - Created Fastlane metadata under `fastlane/metadata/android/en-US/` (`title.txt`, `short_description.txt`, `full_description.txt`, `changelogs/2.txt`, `images/phoneScreenshots/`).
-  - Created F-Droid recipe (`fdroid/com.radioover.radio_over.yml`) following `fdroid rewritemeta` syntax rules.
+  - Created F-Droid recipe (`fdroid/com.radioover.radio_over.yml`) validated against official schema enum (`Multimedia`, `Radio`, `Podcast`).
   - Added `FDROID_FLUTTER_PLAYBOOK.md` to repository root.
-- **308 tests pass, `flutter analyze` clean** (including OPML Import/Export, Standalone Audio Snippet Exporter, Custom Radio Store, Fastlane Store Screenshots, Transcripts/Chapters, Offline Downloads, Audio Snippet Clipper, Timeline Highlights Feed, Audio Threads, Verified Badges, and Equalizer).
+- **311 tests pass, `flutter analyze` clean** (including AddRssFeedDialog clean dismissal, OPML Import/Export, Standalone Audio Snippet Exporter, Custom Radio Store, Fastlane Store Screenshots, Transcripts/Chapters, Offline Downloads, Audio Snippet Clipper, Timeline Highlights Feed, Audio Threads, Verified Badges, and Equalizer).
 - **Fastlane Store Screenshots**: Generated 5 high-resolution phone screenshots (`01_radio_live.png`, `02_podcast_transcripts.png`, `03_audio_clipper.png`, `04_timeline_highlights.png`, `05_equalizer.png`) under `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
 - **Standalone Audio Snippet Export**: `AudioSnippetExporter` (`lib/data/timeline/audio_snippet_exporter.dart`) slices audio frame bytes and shares physical `.mp3` audio files via `SharePlus` directly from `PodcastSnippetClipperSheet` and `TimelineScreen` action rows.
 - **Universal OPML Podcast Subscriptions**: `OpmlService` (`lib/data/podcasts/opml_service.dart`) handles export/import of OPML 2.0 XML with outline nodes; accessible via `OpmlDialog` in `LibraryScreen`.
