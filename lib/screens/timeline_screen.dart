@@ -561,7 +561,7 @@ class _SnippetCard extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: onComments,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: colors.background,
                     borderRadius: BorderRadius.circular(20),
@@ -570,8 +570,8 @@ class _SnippetCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(Icons.chat_bubble_outline_rounded,
-                          size: 14, color: colors.muted),
-                      const SizedBox(width: 5),
+                          size: 13, color: colors.muted),
+                      const SizedBox(width: 4),
                       Text(
                         '$commentsCount',
                         style: TextStyle(
@@ -584,7 +584,7 @@ class _SnippetCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
 
               // Like Button Pill
               GestureDetector(
@@ -592,7 +592,7 @@ class _SnippetCard extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: onLike,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: snippet.isLiked
                         ? colors.accent.withValues(alpha: 0.12)
@@ -608,10 +608,10 @@ class _SnippetCard extends StatelessWidget {
                     children: [
                       Icon(
                         snippet.isLiked ? Icons.favorite : Icons.favorite_border,
-                        size: 14,
+                        size: 13,
                         color: snippet.isLiked ? colors.accent : colors.muted,
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 4),
                       Text(
                         '${snippet.likesCount}',
                         style: TextStyle(
@@ -624,7 +624,7 @@ class _SnippetCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
 
               // Share Button Pill
               GestureDetector(
@@ -632,24 +632,24 @@ class _SnippetCard extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: onShare,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: colors.background,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: colors.hairline),
                   ),
-                  child: Icon(Icons.ios_share, size: 14, color: colors.muted),
+                  child: Icon(Icons.ios_share, size: 13, color: colors.muted),
                 ),
               ),
 
               if (onExportAudio != null) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 GestureDetector(
                   key: ValueKey('snippet-export-${snippet.id}'),
                   behavior: HitTestBehavior.opaque,
                   onTap: onExportAudio,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
                     decoration: BoxDecoration(
                       color: colors.background,
                       borderRadius: BorderRadius.circular(20),
@@ -658,7 +658,7 @@ class _SnippetCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.download_rounded, size: 13, color: colors.podcastAccent),
+                        Icon(Icons.download_rounded, size: 12, color: colors.podcastAccent),
                         const SizedBox(width: 3),
                         Text(
                           'MP3',
@@ -677,20 +677,26 @@ class _SnippetCard extends StatelessWidget {
               const Spacer(),
 
               // Jump to Full Episode Button
-              TextButton.icon(
-                key: ValueKey('snippet-full-${snippet.id}'),
-                icon: const Icon(Icons.headphones, size: 13),
-                label: const Text('FULL EPISODE'),
-                style: TextButton.styleFrom(
-                  foregroundColor: colors.podcastAccent,
-                  textStyle: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    key: ValueKey('snippet-full-${snippet.id}'),
+                    icon: const Icon(Icons.headphones, size: 13),
+                    label: const Text('FULL EPISODE'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.podcastAccent,
+                      textStyle: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    ),
+                    onPressed: onFullEpisode,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 ),
-                onPressed: onFullEpisode,
               ),
             ],
           ),
