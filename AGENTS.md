@@ -5,6 +5,7 @@ Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a 
 ## Build status
 - **Version 2 Release APK Built (`v2.0.0+2`)**: `build/app/outputs/flutter-apk/app-release.apk` (67.4MB) built and ready for distribution.
 - **F-Droid Compliance & Release Pipeline**:
+  - Official F-Droid Submission: **[GitLab MR !48446](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/48446)** (`New app: Radio Over`).
   - Pinned Flutter version (`3.41.4`) in `.github/workflows/release.yml` with dynamic `sed` version extraction in F-Droid build recipe.
   - Added AGP 8+ plugin namespace fallback (`configureNamespace`) in `android/build.gradle.kts`.
   - Added standard MIT License (`LICENSE`) for FLOSS repository compliance.
