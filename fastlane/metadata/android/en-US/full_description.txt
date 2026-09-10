@@ -1,0 +1,27 @@
+Radio Over is a modern, privacy-focused audio player combining live worldwide radio stations, comprehensive podcast discovery, and interactive audio clipping in a sleek, distraction-free interface.
+
+Features:
+
+• Live Worldwide Radio
+Stream thousands of stations from around the globe powered by the Radio Browser community index. Real-time ICY metadata display, automatic stream reconnect, and instant station favorites.
+
+• Podcast 2.0 Directory & Feeds
+Discover and subscribe to shows through Podcast Index and live RSS feeds. Enjoy automatic feed synchronization, background updates, and episode management.
+
+• Live Transcripts & Chapter Navigation
+Follow along with synchronized WebVTT and SRT transcripts with real-time phrase highlighting. Jump directly to points of interest with interactive chapter markers.
+
+• Precision Audio Snippet Trimmer
+Capture memorable audio moments with dual-anchor start and end trimmers. Fine-tune your clips with precision nudges, duration presets (15s to 3m), and audio waveform visualization.
+
+• Social Highlights Feed & Discussions
+Share curated audio quotes, post highlights to the community timeline, follow creators, and participate in threaded audio discussions with verified creator badges.
+
+• Audio Equalizer & Voice Clarity
+Sculpt your sound with dedicated acoustic profiles (Vocal Clarity, Balanced, Bass Boost, Treble Boost), auto-volume leveling, and vocal enhancement.
+
+• Offline Listening & Downloads
+Download full podcast episodes for uninterrupted playback anytime, anywhere.
+
+• System Integration & Sleep Timer
+Full background audio playback with lock-screen media controls, Bluetooth auto-resume, sleep timer with end-of-episode fadeout, and zero analytics or trackers.

@@ -1,0 +1,44 @@
+Categories:
+  - Multimedia
+  - Audio
+License: MIT
+AuthorName: Radio Over Contributors
+SourceCode: https://github.com/thisscribe000/radio_over
+IssueTracker: https://github.com/thisscribe000/radio_over/issues
+Changelog: https://github.com/thisscribe000/radio_over/releases
+
+AutoName: Radio Over
+
+RepoType: git
+Repo: https://github.com/thisscribe000/radio_over.git
+
+Builds:
+  - versionName: 2.0.0
+    versionCode: 2
+    commit: 7e35775623b8ea42aff49eab4c58acdbfc920fa5
+    output: build/app/outputs/flutter-apk/app-release.apk
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - macos
+      - web
+      - windows
+    prebuild:
+      - flutterVersion=$(sed -n -E "s/.*flutter-version:\ '(.*)'/\1/p" .github/workflows/release.yml)
+      - '[[ $flutterVersion ]]'
+      - git -C $$flutter$$ checkout -f $flutterVersion
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get --enforce-lockfile
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+UpdateCheckData: pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
+CurrentVersion: 2.0.0
+CurrentVersionCode: 2

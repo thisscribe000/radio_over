@@ -4,6 +4,13 @@ Flutter audio app: radio + podcasts. In-memory state on `PlaybackController` (a 
 
 ## Build status
 - **Version 2 Release APK Built (`v2.0.0+2`)**: `build/app/outputs/flutter-apk/app-release.apk` (67.4MB) built and ready for distribution.
+- **F-Droid Compliance & Release Pipeline**:
+  - Pinned Flutter version (`3.41.4`) in `.github/workflows/release.yml` with dynamic `sed` version extraction in F-Droid build recipe.
+  - Added AGP 8+ plugin namespace fallback (`configureNamespace`) in `android/build.gradle.kts`.
+  - Added standard MIT License (`LICENSE`) for FLOSS repository compliance.
+  - Created Fastlane metadata under `fastlane/metadata/android/en-US/` (`title.txt`, `short_description.txt`, `full_description.txt`, `changelogs/2.txt`, `images/phoneScreenshots/`).
+  - Created F-Droid recipe (`fdroid/com.radioover.radio_over.yml`) following `fdroid rewritemeta` syntax rules.
+  - Added `FDROID_FLUTTER_PLAYBOOK.md` to repository root.
 - **299 tests pass, `flutter analyze` clean** (including Podcast Discovery, Transcripts/Chapters, Offline Downloads, Podcast Audio Clipper & Social Timeline Highlights Feed, Audio Snippet Thread System, Verified Creator Badges, Creator Roles, Interactive Comments System, and App Icon & Native Splash Assets).
 - **Custom Brand Identity & App Icons**:
   - Generated high-resolution 3D glassmorphic neon audio pulse brand mark (`assets/icon/app_icon.png` and `assets/icon/splash_logo.png`).

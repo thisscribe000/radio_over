@@ -1,0 +1,8 @@
+• Added Podcast 2.0 synchronized transcripts (WebVTT & SRT) with live highlighting
+• Added interactive chapter marker navigation
+• Added dual-anchor precision audio snippet trimmer with waveform preview
+• Added community Highlights timeline feed with audio snippet threads
+• Added interactive comment sheet and verified creator badge system
+• Added 4-profile audio equalizer and vocal clarity enhancer
+• Upgraded background audio engine and playback resume
+• Updated app icon, adaptive icons, and native splash screen
