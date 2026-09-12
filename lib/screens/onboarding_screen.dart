@@ -83,11 +83,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     if (FirebaseService.isActive) {
       if (email.isEmpty || !email.contains('@')) {
-        _showError('Please enter a valid email address.');
+        _showError('INVALID EMAIL ADDRESS.');
         return;
       }
       if (password.length < 6) {
-        _showError('Password must be at least 6 characters.');
+        _showError('PASSWORD MUST BE AT LEAST 6 CHARACTERS.');
         return;
       }
 
@@ -101,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           interests: interests,
         );
       } catch (e) {
-        _showError(e.toString());
+        _showError(e.toString().toUpperCase());
         return;
       }
     }
@@ -120,12 +120,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.background,
-        shape: RoundedRectangleBorder(side: BorderSide(color: colors.ink)),
-        title: const Text('SIGN UP ERROR', style: TextStyle(fontFamily: 'Ahem', fontSize: 16)),
-        content: Text(message, style: const TextStyle(fontSize: 13)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+          side: BorderSide(color: colors.ink, width: 1.5),
+        ),
+        title: Text(
+          'SIGN UP ERROR',
+          style: TextStyle(
+            fontFamily: 'Ahem',
+            fontSize: 16,
+            color: colors.ink,
+          ),
+        ),
+        content: Text(
+          message,
+          style: TextStyle(fontSize: 12, color: colors.ink, fontFamily: 'Ahem'),
+        ),
         actions: [
-          TextButton(
-            child: Text('OK', style: TextStyle(color: colors.ink)),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.background,
+              backgroundColor: colors.ink,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+              side: BorderSide(color: colors.ink, width: 1),
+            ),
+            child: const Text('OK', style: TextStyle(fontFamily: 'Ahem', fontSize: 12)),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -154,7 +173,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         await widget.controller.completeOnboarding();
       }
     } catch (e) {
-      _showError(e.toString());
+      _showError(e.toString().toUpperCase());
     }
   }
 
@@ -173,28 +192,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'RADIO OVER',
-                    style: TextStyle(
-                      fontFamily: 'Ahem',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
-                      color: colors.ink,
-                    ),
+                  Row(
+                    children: [
+                      Image.asset(
+                        'assets/icon/splash_logo.png',
+                        width: 24,
+                        height: 24,
+                        color: colors.ink,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'RADIO OVER',
+                        style: TextStyle(
+                          fontFamily: 'Ahem',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.0,
+                          color: colors.ink,
+                        ),
+                      ),
+                    ],
                   ),
                   Row(
                     children: List.generate(
                       3,
                       (index) => Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.only(left: 6),
+                        width: 12,
+                        height: 2,
+                        margin: const EdgeInsets.only(left: 4),
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _currentPage == index
-                              ? colors.podcastAccent
-                              : colors.hairline,
+                          color: _currentPage >= index ? colors.ink : colors.hairline,
                         ),
                       ),
                     ),
@@ -222,17 +249,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: colors.hairline)),
+                border: Border(top: BorderSide(color: colors.ink, width: 1.5)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   if (_currentPage > 0)
-                    TextButton(
+                    OutlinedButton(
                       key: const ValueKey('onboarding-back'),
                       onPressed: _previousPage,
-                      style: TextButton.styleFrom(foregroundColor: colors.muted),
-                      child: const Text('BACK'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colors.ink,
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                        side: BorderSide(color: colors.ink, width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      ),
+                      child: const Text(
+                        'BACK',
+                        style: TextStyle(fontFamily: 'Ahem', fontSize: 12),
+                      ),
                     )
                   else
                     const SizedBox.shrink(),
@@ -243,16 +278,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       backgroundColor: colors.ink,
                       foregroundColor: colors.background,
                       elevation: 0,
-                      shape: const RoundedRectangleBorder(),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     ),
                     child: Text(
-                      _currentPage == 2 ? 'COMPLETE SIGN UP' : 'CONTINUE',
+                      _currentPage == 2 ? 'COMPLETE' : 'CONTINUE',
                       style: const TextStyle(
                         fontFamily: 'Ahem',
                         fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
+                        letterSpacing: 1.5,
                       ),
                     ),
                   ),
@@ -272,34 +306,49 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: colors.ink, width: 1.5),
+            ),
+            child: Text(
+              'CHAPTER I',
+              style: TextStyle(
+                fontFamily: 'Ahem',
+                fontSize: 10,
+                color: colors.ink,
+                letterSpacing: 2.0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
-            'INDEPENDENT\nAUDIO NETWORK.',
+            'INDEPENDENT\nAUDIO\nNETWORK.',
             style: TextStyle(
               fontFamily: 'Ahem',
-              fontSize: 32,
-              height: 1.1,
-              fontWeight: FontWeight.w900,
+              fontSize: 36,
+              height: 1.2,
               color: colors.ink,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 32),
           Text(
             'Explore high-fidelity radio broadcasts, discover independent podcast creators, and build your custom listening library for online or offline access.',
             style: TextStyle(
               fontSize: 14,
-              height: 1.5,
-              color: colors.muted,
+              height: 1.6,
+              color: colors.ink,
             ),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 48),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border.all(color: colors.hairline),
+              border: Border.all(color: colors.ink, width: 1.5),
             ),
             child: Row(
               children: [
-                Icon(Icons.offline_pin_outlined, color: colors.podcastAccent, size: 24),
+                Icon(Icons.download, color: colors.ink, size: 24),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -308,15 +357,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Text(
                         'OFFLINE PLAYBACK FIRST',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Ahem',
+                          fontSize: 10,
                           color: colors.ink,
+                          letterSpacing: 1.0,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Text(
                         'Keep your episodes downloaded to stream even when off-grid.',
-                        style: TextStyle(fontSize: 11, color: colors.muted),
+                        style: TextStyle(fontSize: 12, color: colors.ink),
                       ),
                     ],
                   ),
@@ -336,28 +386,44 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            'WHAT INTERESTS\nYOU?',
-            style: TextStyle(
-              fontFamily: 'Ahem',
-              fontSize: 32,
-              height: 1.1,
-              fontWeight: FontWeight.w900,
-              color: colors.ink,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: colors.ink, width: 1.5),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Select your favorite genres to help tailor recommendations and configure your dashboard feed.',
-            style: TextStyle(
-              fontSize: 13,
-              color: colors.muted,
+            child: Text(
+              'CHAPTER II',
+              style: TextStyle(
+                fontFamily: 'Ahem',
+                fontSize: 10,
+                color: colors.ink,
+                letterSpacing: 2.0,
+              ),
             ),
           ),
           const SizedBox(height: 24),
+          Text(
+            'WHAT\nINTERESTS\nYOU?',
+            style: TextStyle(
+              fontFamily: 'Ahem',
+              fontSize: 36,
+              height: 1.2,
+              color: colors.ink,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Select your favorite genres to help tailor recommendations.',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.6,
+              color: colors.ink,
+            ),
+          ),
+          const SizedBox(height: 32),
           Wrap(
-            spacing: 8,
-            runSpacing: 10,
+            spacing: 12,
+            runSpacing: 12,
             children: _availableInterests.map((interest) {
               final bool isSelected = _selectedInterests.contains(interest);
               return GestureDetector(
@@ -373,23 +439,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 },
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? colors.podcastAccent.withValues(alpha: 0.1)
-                        : Colors.transparent,
+                    color: isSelected ? colors.ink : colors.background,
                     border: Border.all(
-                      color: isSelected ? colors.podcastAccent : colors.hairline,
-                      width: 1,
+                      color: colors.ink,
+                      width: 1.5,
                     ),
-                    borderRadius: BorderRadius.circular(4),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Text(
                     interest.toUpperCase(),
                     style: TextStyle(
+                      fontFamily: 'Ahem',
                       fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? colors.podcastAccent : colors.ink,
-                      letterSpacing: 0.5,
+                      color: isSelected ? colors.background : colors.ink,
+                      letterSpacing: 1.0,
                     ),
                   ),
                 ),
@@ -408,187 +471,147 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 60),
+            const SizedBox(height: 48),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: colors.ink, width: 1.5),
+              ),
+              child: Text(
+                'CHAPTER III',
+                style: TextStyle(
+                  fontFamily: 'Ahem',
+                  fontSize: 10,
+                  color: colors.ink,
+                  letterSpacing: 2.0,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
             Text(
               'SET UP YOUR\nPROFILE.',
               style: TextStyle(
                 fontFamily: 'Ahem',
-                fontSize: 32,
-                height: 1.1,
-                fontWeight: FontWeight.w900,
+                fontSize: 36,
+                height: 1.2,
                 color: colors.ink,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Enter a nickname and bio. This identity represents you in collections and creators you follow.',
-              style: TextStyle(
-                fontSize: 13,
-                color: colors.muted,
               ),
             ),
             const SizedBox(height: 32),
-            // Username Field
-            Text(
+            _buildEditorialTextField(
               'NICKNAME',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
-                color: colors.muted,
-              ),
-            ),
-            TextField(
+              _nameController,
+              colors,
               key: const ValueKey('onboarding-name-input'),
-              controller: _nameController,
-              cursorColor: colors.ink,
-              style: TextStyle(
-                fontFamily: 'Ahem',
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: colors.ink,
-              ),
-              decoration: InputDecoration(
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: colors.hairline),
-                ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: colors.ink),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              ),
             ),
             const SizedBox(height: 24),
-            // Bio Field
-            Text(
+            _buildEditorialTextField(
               'BIO',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
-                color: colors.muted,
-              ),
-            ),
-            TextField(
-              key: const ValueKey('onboarding-bio-input'),
-              controller: _bioController,
-              cursorColor: colors.ink,
+              _bioController,
+              colors,
               maxLines: 3,
-              style: TextStyle(
-                fontSize: 13,
-                color: colors.ink,
-              ),
-              decoration: InputDecoration(
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: colors.hairline),
-                ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: colors.ink),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              ),
+              key: const ValueKey('onboarding-bio-input'),
             ),
             if (FirebaseService.isActive) ...[
               const SizedBox(height: 24),
-              Text(
+              _buildEditorialTextField(
                 'EMAIL ADDRESS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                  color: colors.muted,
-                ),
-              ),
-              TextField(
+                _emailController,
+                colors,
                 key: const ValueKey('onboarding-email-input'),
-                controller: _emailController,
-                cursorColor: colors.ink,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colors.ink,
-                ),
-                decoration: InputDecoration(
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: colors.hairline),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: colors.ink),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                ),
               ),
               const SizedBox(height: 24),
-              Text(
+              _buildEditorialTextField(
                 'PASSWORD',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                  color: colors.muted,
-                ),
-              ),
-              TextField(
-                key: const ValueKey('onboarding-password-input'),
-                controller: _passwordController,
+                _passwordController,
+                colors,
                 obscureText: true,
-                cursorColor: colors.ink,
-                style: TextStyle(
-                  fontSize: 14,
+                key: const ValueKey('onboarding-password-input'),
+              ),
+              const SizedBox(height: 32),
+              Center(
+                child: Container(
+                  width: double.infinity,
+                  height: 1.5,
                   color: colors.ink,
                 ),
-                decoration: InputDecoration(
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: colors.hairline),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: colors.ink),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                ),
               ),
-              const SizedBox(height: 28),
-              Center(
-                child: Text(
-                  '— OR —',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: colors.muted,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 32),
               OutlinedButton(
                 key: const ValueKey('onboarding-google-signin-button'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: colors.ink,
                   side: BorderSide(color: colors.ink, width: 1.5),
-                  shape: const RoundedRectangleBorder(),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  minimumSize: const Size(double.infinity, 48),
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  minimumSize: const Size(double.infinity, 56),
                 ),
                 onPressed: _handleGoogleSignIn,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.g_mobiledata, size: 28),
-                    const SizedBox(width: 8),
                     Text(
                       'SIGN IN WITH GOOGLE',
                       style: TextStyle(
                         fontFamily: 'Ahem',
                         fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                        letterSpacing: 1.5,
                       ),
                     ),
                   ],
                 ),
               ),
             ],
+            const SizedBox(height: 48),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEditorialTextField(
+    String label,
+    TextEditingController controller,
+    AppColors colors, {
+    int maxLines = 1,
+    bool obscureText = false,
+    Key? key,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Ahem',
+            fontSize: 10,
+            letterSpacing: 2.0,
+            color: colors.ink,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: colors.ink, width: 1.5),
+          ),
+          child: TextField(
+            key: key,
+            controller: controller,
+            cursorColor: colors.ink,
+            obscureText: obscureText,
+            maxLines: maxLines,
+            style: TextStyle(
+              fontSize: 14,
+              color: colors.ink,
+              height: 1.5,
+            ),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.all(16),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

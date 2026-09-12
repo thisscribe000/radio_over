@@ -88,14 +88,14 @@ void main() {
       );
 
       // Slide 1: Welcome Screen
-      expect(find.text('INDEPENDENT\nAUDIO NETWORK.'), findsOneWidget);
+      expect(find.text('INDEPENDENT\nAUDIO\nNETWORK.'), findsOneWidget);
       expect(find.byKey(const ValueKey('onboarding-next')), findsOneWidget);
 
       // Tap Next to go to Slide 2: Interests
       await tester.tap(find.byKey(const ValueKey('onboarding-next')));
       await tester.pumpAndSettle();
 
-      expect(find.text('WHAT INTERESTS\nYOU?'), findsOneWidget);
+      expect(find.text('WHAT\nINTERESTS\nYOU?'), findsOneWidget);
 
       // Tap a genre chip
       final techChip = find.byKey(const ValueKey('interest-chip-Tech'));
